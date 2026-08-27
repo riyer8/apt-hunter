@@ -20,6 +20,7 @@ export function ApartmentProvider({ children }) {
     const onChange = () => refresh();
     window.addEventListener("aptwatch:apartments-changed", onChange);
     window.addEventListener("storage", onChange);
+    const poll = setInterval(onChange, 45000);
     let listener;
     if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
       listener = (changes, area) => {
@@ -30,6 +31,7 @@ export function ApartmentProvider({ children }) {
     return () => {
       window.removeEventListener("aptwatch:apartments-changed", onChange);
       window.removeEventListener("storage", onChange);
+      clearInterval(poll);
       if (listener) chrome.storage.onChanged.removeListener(listener);
     };
   }, [refresh]);
@@ -51,9 +53,35 @@ export function ApartmentProvider({ children }) {
     [refresh],
   );
 
+  const setMonitorState = useCallback(
+    async (id, state) => {
+      await api.setMonitorState(id, state);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const scrapeNow = useCallback(
+    async (id) => {
+      const result = await api.scrapeNow(id);
+      await refresh();
+      return result;
+    },
+    [refresh],
+  );
+
   const value = useMemo(
-    () => ({ apartments, loading, source, refresh, addApartment, removeApartment }),
-    [apartments, loading, source, refresh, addApartment, removeApartment],
+    () => ({
+      apartments,
+      loading,
+      source,
+      refresh,
+      addApartment,
+      removeApartment,
+      setMonitorState,
+      scrapeNow,
+    }),
+    [apartments, loading, source, refresh, addApartment, removeApartment, setMonitorState, scrapeNow],
   );
 
   return <ApartmentContext.Provider value={value}>{children}</ApartmentContext.Provider>;

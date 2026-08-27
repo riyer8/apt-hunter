@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
-import { listingMatchesFilters, isNewListing, isPriceDrop, isRecentlyChanged, sortListings } from "@shared/listingView.js";
+import { Link } from "react-router-dom";
+import { listingMatchesFilters, isNewListing, isRecentlyChanged, sortListings } from "@shared/listingView.js";
 import { useApartments } from "../state/ApartmentContext.jsx";
 import { apartmentVisible } from "../lib/filters.js";
+import { formatRelativeTime } from "../lib/format.js";
 import { cycleSort, usePersistentFilters } from "../hooks/usePersistentFilters.js";
 import Shell from "../components/Shell.jsx";
 import FilterBar from "../components/FilterBar.jsx";
@@ -48,8 +50,18 @@ export default function Dashboard() {
     [apartments, filters],
   );
 
-  const newCount = allListings.filter((listing) => isNewListing(listing)).length;
-  const dropCount = allListings.filter((listing) => isPriceDrop(listing)).length;
+  const newListings =
+    source === "api"
+      ? apartments.reduce((total, apartment) => total + (apartment.changeSummary?.new || 0), 0)
+      : allListings.filter((listing) => isNewListing(listing)).length;
+  const activeMonitors = apartments.filter((apartment) => apartment.monitorState === "active").length;
+  const failedMonitors = apartments.filter(
+    (apartment) => apartment.monitorState === "active" && (apartment.consecutiveFailures || 0) >= 3,
+  ).length;
+  const lastCheckedMs = apartments.reduce((latest, apartment) => {
+    const time = Date.parse(apartment.lastChecked || 0);
+    return Number.isNaN(time) ? latest : Math.max(latest, time);
+  }, 0);
   const recent = filteredListings
     .filter((listing) => isRecentlyChanged(listing))
     .sort((left, right) => Date.parse(right.lastSeen || 0) - Date.parse(left.lastSeen || 0))
@@ -67,7 +79,7 @@ export default function Dashboard() {
       <h1 className="page-title">Your buildings, at a glance.</h1>
       <p className="lede">
         {source === "api"
-          ? "This dashboard reads apartments from the AptWatch database. Analyze a page in the extension to refresh units."
+          ? "The backend checks availability pages on a 30-minute schedule. Start monitoring on a building, or use Scrape Now."
           : source === "extension"
             ? "This dashboard reads the same saved list as the Chrome extension. Analyze a page in the popup to refresh units here."
             : "Showing sample data. Start the backend or load the AptWatch extension to see real apartments."}
@@ -75,20 +87,22 @@ export default function Dashboard() {
 
       <section className="stats">
         <div className="stat">
-          <div className="stat-value">{loading ? "—" : apartments.length}</div>
-          <div className="stat-label">Apartments monitored</div>
+          <div className="stat-value">{loading ? "—" : activeMonitors}</div>
+          <div className="stat-label">Active monitors</div>
         </div>
         <div className="stat">
-          <div className="stat-value">{loading ? "—" : allListings.length}</div>
-          <div className="stat-label">Available units</div>
+          <div className="stat-value stat-value-fit">
+            {loading ? "—" : lastCheckedMs ? formatRelativeTime(new Date(lastCheckedMs).toISOString()) : "Never"}
+          </div>
+          <div className="stat-label">Last checked</div>
         </div>
         <div className="stat">
-          <div className="stat-value">{loading ? "—" : newCount}</div>
+          <div className="stat-value">{loading ? "—" : newListings}</div>
           <div className="stat-label">New listings</div>
         </div>
         <div className="stat">
-          <div className="stat-value">{loading ? "—" : dropCount}</div>
-          <div className="stat-label">Price drops</div>
+          <div className="stat-value">{loading ? "—" : failedMonitors}</div>
+          <div className="stat-label">Failed monitors</div>
         </div>
       </section>
 
@@ -98,7 +112,9 @@ export default function Dashboard() {
         <section>
           <div className="section-head">
             <h2>Recently changed</h2>
-            <p>New units and updates from the latest checks</p>
+            <p>
+              New units and updates from the latest checks · <Link to="/changes">See all changes</Link>
+            </p>
           </div>
           <div className="changed-rail">
             {recent.map((listing) => (

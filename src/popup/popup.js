@@ -229,10 +229,11 @@ function formatPrice(value) {
   return `$${Number(value).toLocaleString("en-US")}`;
 }
 
-function formatBeds(value) {
-  if (value == null) return "—";
-  if (value === 0) return "Studio";
-  return String(value);
+function formatBedsBaths(listing) {
+  const beds = listing.bedrooms == null ? "—" : listing.bedrooms === 0 ? "Studio" : String(listing.bedrooms);
+  const baths = listing.bathrooms == null ? "—" : String(listing.bathrooms);
+  if (listing.bedrooms == null && listing.bathrooms == null) return "—";
+  return `${beds} / ${baths}`;
 }
 
 function formatAvailable(value) {
@@ -297,7 +298,7 @@ function fillListingRows(body, listings) {
 
     const beds = document.createElement("td");
     beds.className = "num";
-    beds.textContent = formatBeds(listing.bedrooms);
+    beds.textContent = formatBedsBaths(listing);
 
     const sqft = document.createElement("td");
     sqft.className = "num";
@@ -364,7 +365,7 @@ function renderListingsTable(id, listings) {
       <tr>
         ${sortHeader("unit", "Unit", state, false)}
         ${sortHeader("price", "Price", state, true)}
-        ${sortHeader("beds", "Beds", state, true)}
+        ${sortHeader("beds", "Bed / Bath", state, true)}
         ${sortHeader("sqft", "Sqft", state, true)}
         ${sortHeader("available", "Available", state, false)}
       </tr>

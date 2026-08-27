@@ -47,6 +47,16 @@ export function formatBedsShort(value) {
   return String(value);
 }
 
+export function formatBathsShort(value) {
+  if (value == null) return "—";
+  return String(value);
+}
+
+export function formatBedsBathsShort(listing) {
+  if (listing?.bedrooms == null && listing?.bathrooms == null) return "—";
+  return `${formatBedsShort(listing.bedrooms)} / ${formatBathsShort(listing.bathrooms)}`;
+}
+
 export function formatPriceShort(value) {
   if (value == null) return "—";
   return `$${Number(value).toLocaleString("en-US")}`;
@@ -64,6 +74,38 @@ export function formatRelativeTime(iso) {
   if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
   const days = Math.round(hours / 24);
   return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+export function formatDateTime(iso) {
+  if (!iso) return "Never";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function formatClock(iso) {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+export function formatUntil(iso) {
+  if (!iso) return "unscheduled";
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) return "unscheduled";
+  const seconds = Math.round((then - Date.now()) / 1000);
+  if (seconds <= 0) return "soon";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `~${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return `~${hours} hour${hours === 1 ? "" : "s"}`;
 }
 
 export function listingTitle(listing) {

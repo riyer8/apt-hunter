@@ -20,23 +20,7 @@ export function isUuid(value) {
   );
 }
 
-export function listingIdentityKey(listing) {
-  const unit = slug(listing?.unit);
-  const plan = slug(listing?.floorPlan || listing?.floor_plan);
-  if (unit) return `unit:${unit}`;
-  if (plan) return `plan:${plan}`;
-  if (listing?.id) return `id:${String(listing.id)}`;
-  return null;
-}
-
-function slug(value) {
-  if (value == null || value === "") return "";
-  return String(value)
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
+export { listingIdentityKey } from "./identity.js";
 
 export function requireFields(body, fields) {
   const missing = fields.filter((field) => body?.[field] == null || body[field] === "");
@@ -66,6 +50,16 @@ export function parseApartmentInput(body) {
   return { name, url, canonicalUrl: canonicalUrl(url), location };
 }
 
+export function parseMonitorState(body) {
+  const state = String(body?.state || body?.monitorState || "").toLowerCase();
+  if (state !== "active" && state !== "paused") {
+    const error = new Error("state must be active or paused.");
+    error.status = 400;
+    throw error;
+  }
+  return state;
+}
+
 export function parseScrapeInput(body) {
   const outcome = String(body?.outcome || body?.status || "").toUpperCase();
   const allowed = new Set(["SUCCESS", "PARTIAL", "FAILED"]);
@@ -88,5 +82,19 @@ export function parseScrapeInput(body) {
     extractionMethod: body?.extractionMethod || body?.extraction_method || null,
     errorMessage: body?.errorMessage || body?.error_message || null,
     startedAt: body?.startedAt || null,
+  };
+}
+
+export function parseAlertPrefs(body) {
+  return {
+    newListings: body?.newListings !== false,
+    priceDrops: body?.priceDrops !== false,
+    priceIncreases: body?.priceIncreases === true,
+    availabilityChanges: body?.availabilityChanges !== false,
+    maxRent: body?.maxRent === "" || body?.maxRent == null ? null : Number(body.maxRent),
+    minSqft: body?.minSqft === "" || body?.minSqft == null ? null : Number(body.minSqft),
+    bedrooms: body?.bedrooms === "" || body?.bedrooms == null ? null : Number(body.bedrooms),
+    bathrooms: body?.bathrooms === "" || body?.bathrooms == null ? null : Number(body.bathrooms),
+    availableBy: body?.availableBy || null,
   };
 }

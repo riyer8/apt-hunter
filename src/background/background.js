@@ -12,6 +12,7 @@ import {
   updateListingLedger,
   reportScrapeToBackend,
 } from "../lib/storage.js";
+import { startAlertPolling } from "./alerts.js";
 
 const EXTRACTOR_FILES = [
   "src/analyzer/page/namespace.js",
@@ -33,7 +34,14 @@ const analyzing = new Set();
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log("AptWatch ready");
+  startAlertPolling();
 });
+
+chrome.runtime.onStartup.addListener(() => {
+  startAlertPolling();
+});
+
+startAlertPolling();
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "ANALYZE_APARTMENT") {

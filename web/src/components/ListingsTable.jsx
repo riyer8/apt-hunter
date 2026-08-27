@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { isNewListing, isPriceDrop } from "@shared/listingView.js";
 import {
   formatAvailableShort,
-  formatBedsShort,
+  formatBedsBathsShort,
   formatPriceShort,
   listingTitle,
 } from "../lib/format.js";
@@ -11,7 +11,7 @@ const COLUMNS = [
   { key: "building", label: "Building" },
   { key: "unit", label: "Unit" },
   { key: "price", label: "Price", numeric: true },
-  { key: "beds", label: "Beds", numeric: true },
+  { key: "beds", label: "Bed / Bath", numeric: true },
   { key: "sqft", label: "Sqft", numeric: true },
   { key: "availability", label: "Available" },
 ];
@@ -81,7 +81,7 @@ export default function ListingsTable({
                   {formatPriceShort(listing.price)}
                   {drop ? <s>{formatPriceShort(listing.previousPrice)}</s> : null}
                 </td>
-                <td className="num">{formatBedsShort(listing.bedrooms)}</td>
+                <td className="num">{formatBedsBathsShort(listing)}</td>
                 <td className="num">{listing.sqft == null ? "—" : listing.sqft.toLocaleString("en-US")}</td>
                 <td>{formatAvailableShort(listing.availableDate)}</td>
               </tr>

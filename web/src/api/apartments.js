@@ -185,6 +185,51 @@ export async function listApartments() {
   return clone(readLocal());
 }
 
+export async function listNotifications({ unread, pending, limit } = {}) {
+  if (!(await apiReady())) return { notifications: [], unreadCount: 0 };
+  const params = new URLSearchParams();
+  if (unread) params.set("unread", "1");
+  if (pending) params.set("pending", "1");
+  if (limit) params.set("limit", String(limit));
+  const query = params.toString();
+  return apiRequest(`/notifications${query ? `?${query}` : ""}`);
+}
+
+export async function markNotificationRead(id) {
+  return apiRequest(`/notifications/${id}/read`, { method: "POST" });
+}
+
+export async function markAllNotificationsRead() {
+  return apiRequest("/notifications/read-all", { method: "POST" });
+}
+
+export async function deliverNotification(id) {
+  return apiRequest(`/notifications/${id}/deliver`, { method: "POST" });
+}
+
+export async function getAlertPrefs(id) {
+  return apiRequest(`/apartments/${id}/alerts`);
+}
+
+export async function saveAlertPrefs(id, prefs) {
+  return apiRequest(`/apartments/${id}/alerts`, { method: "PUT", body: prefs });
+}
+
+export async function listChanges({ apartmentId, type, limit } = {}) {
+  if (await apiReady()) {
+    const params = new URLSearchParams();
+    if (apartmentId) params.set("apartmentId", apartmentId);
+    if (type) params.set("type", type);
+    if (limit) params.set("limit", String(limit));
+    const query = params.toString();
+    return apiRequest(`/changes${query ? `?${query}` : ""}`);
+  }
+
+  const { synthesizeChanges } = await import("../lib/changes.js");
+  const apartments = await listApartments();
+  return synthesizeChanges(apartments, { apartmentId, type });
+}
+
 export async function getApartment(id) {
   return (await listApartments()).find((item) => item.id === id) || null;
 }
@@ -249,6 +294,27 @@ export async function removeApartment(id) {
 
   writeLocal(readLocal().filter((item) => item.id !== id));
   return true;
+}
+
+export async function setMonitorState(id, state) {
+  if (await apiReady()) {
+    return apiRequest(`/apartments/${id}/monitor`, { method: "POST", body: { state } });
+  }
+  throw new Error("Start and pause monitoring need the AptWatch API.");
+}
+
+export async function scrapeNow(id) {
+  if (await apiReady()) {
+    return apiRequest(`/apartments/${id}/scrape-now`, { method: "POST" });
+  }
+  throw new Error("Scrape Now needs the AptWatch API.");
+}
+
+export async function listScrapeHistory(id) {
+  if (await apiReady()) {
+    return apiRequest(`/apartments/${id}/scrape-history`);
+  }
+  return [];
 }
 
 export async function resetMockData() {

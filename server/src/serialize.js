@@ -27,7 +27,7 @@ export function scrapeStatusFromOutcome(outcome) {
   return monitoringStatusFromOutcome(outcome);
 }
 
-export function toApiApartment(row, listings = []) {
+export function toApiApartment(row, listings = [], extras = {}) {
   return {
     id: row.id,
     name: row.name,
@@ -36,7 +36,22 @@ export function toApiApartment(row, listings = []) {
     dateAdded: toIso(row.created_at),
     status: STATUS_TO_UI[row.monitoring_status] || STATUS_TO_UI.not_analyzed,
     lastChecked: toIso(row.last_checked_at),
+    lastSuccessfulScrape: toIso(extras.lastSuccessfulScrape),
+    lastAttemptAt: toIso(extras.lastAttemptAt || row.last_checked_at),
+    lastScrapeStatus: extras.lastScrapeStatus || row.monitoring_status || null,
+    monitorState: row.monitor_state || "paused",
+    nextScrapeAt: toIso(row.next_scrape_at),
+    consecutiveFailures: Number(row.consecutive_failures || 0),
+    lastError: row.last_error || null,
+    scrapeInProgress: Boolean(row.scrape_lock_at),
+    changeSummary: extras.changeSummary || {
+      new: 0,
+      priceDrops: 0,
+      availabilityChanged: 0,
+      removed: 0,
+    },
     listings,
+    alertPreferences: extras.alertPreferences || null,
   };
 }
 
@@ -60,6 +75,69 @@ export function toApiListing(row, apartmentName, previousPrice = null) {
     sources: row.source ? [row.source] : [],
     previousPrice: previousPrice == null ? null : Number(previousPrice),
     isActive: row.is_active !== false,
+  };
+}
+
+export function toApiChange(row) {
+  return {
+    id: row.id,
+    listingId: row.listing_id,
+    apartmentId: row.apartment_id,
+    apartmentName: row.apartment_name || null,
+    unit: row.unit || null,
+    changeType: row.change_type,
+    previousValue: row.previous_value,
+    newValue: row.new_value,
+    detectedAt: toIso(row.detected_at),
+    listingUrl: row.listing_url || null,
+    details: row.details || null,
+  };
+}
+
+export function toApiNotification(row) {
+  return {
+    id: row.id,
+    changeId: row.change_id,
+    apartmentId: row.apartment_id,
+    listingId: row.listing_id,
+    apartmentName: row.apartment_name || null,
+    unit: row.unit || null,
+    notificationType: row.notification_type,
+    title: row.title,
+    body: row.body,
+    listingUrl: row.listing_url || null,
+    clickUrl: row.click_url || null,
+    createdAt: toIso(row.created_at),
+    readAt: toIso(row.read_at),
+    deliveryStatus: row.delivery_status,
+    deliveredAt: toIso(row.delivered_at),
+  };
+}
+
+export function toApiAlertPrefs(row) {
+  if (!row) {
+    return {
+      newListings: true,
+      priceDrops: true,
+      priceIncreases: false,
+      availabilityChanges: true,
+      maxRent: null,
+      minSqft: null,
+      bedrooms: null,
+      bathrooms: null,
+      availableBy: null,
+    };
+  }
+  return {
+    newListings: row.new_listings !== false,
+    priceDrops: row.price_drops !== false,
+    priceIncreases: row.price_increases === true,
+    availabilityChanges: row.availability_changes !== false,
+    maxRent: row.max_rent == null ? null : Number(row.max_rent),
+    minSqft: row.min_sqft == null ? null : Number(row.min_sqft),
+    bedrooms: row.bedrooms == null ? null : Number(row.bedrooms),
+    bathrooms: row.bathrooms == null ? null : Number(row.bathrooms),
+    availableBy: row.available_by || null,
   };
 }
 

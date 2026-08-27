@@ -73,7 +73,7 @@ export default function FilterBar({ filters, onChange, showSort = false }) {
             >
               <option value="unit">Unit</option>
               <option value="price">Price</option>
-              <option value="beds">Beds</option>
+              <option value="beds">Bed / Bath</option>
               <option value="sqft">Square footage</option>
               <option value="availability">Availability date</option>
               <option value="newest">Newest</option>

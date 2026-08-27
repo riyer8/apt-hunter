@@ -1,21 +1,28 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { listingMatchesFilters, sortListings } from "@shared/listingView.js";
 import { useApartments } from "../state/ApartmentContext.jsx";
 import { cycleSort, usePersistentFilters } from "../hooks/usePersistentFilters.js";
-import { formatRelativeTime } from "../lib/format.js";
-import { statusMeta } from "../lib/status.js";
+import { apartmentChangeSummary } from "../lib/changes.js";
+import { formatClock, formatDateTime, formatRelativeTime } from "../lib/format.js";
+import { monitorMeta } from "../lib/status.js";
+import { listScrapeHistory } from "../api/apartments.js";
 import Shell from "../components/Shell.jsx";
 import FilterBar from "../components/FilterBar.jsx";
 import ListingsTable from "../components/ListingsTable.jsx";
+import AlertPrefsForm from "../components/AlertPrefsForm.jsx";
 
 export default function ApartmentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { apartments, loading, source, removeApartment } = useApartments();
+  const { apartments, loading, source, removeApartment, setMonitorState, scrapeNow } = useApartments();
   const [filters, setFilters] = usePersistentFilters();
+  const [history, setHistory] = useState([]);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
   const apartment = apartments.find((item) => item.id === id);
-  const status = apartment ? statusMeta(apartment.status) : null;
+  const monitor = apartment ? monitorMeta(apartment) : null;
+  const summary = apartment ? apartmentChangeSummary(apartment) : null;
 
   const listings = useMemo(() => {
     if (!apartment) return [];
@@ -26,6 +33,17 @@ export default function ApartmentDetail() {
     );
   }, [apartment, filters]);
 
+  useEffect(() => {
+    if (!id || source !== "api") return undefined;
+    let cancelled = false;
+    listScrapeHistory(id).then((rows) => {
+      if (!cancelled) setHistory(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, source, apartment?.lastChecked, apartment?.scrapeInProgress]);
+
   if (!loading && !apartment) {
     return (
       <Shell source={source}>
@@ -34,6 +52,18 @@ export default function ApartmentDetail() {
         </div>
       </Shell>
     );
+  }
+
+  async function run(label, action) {
+    setError("");
+    setBusy(label);
+    try {
+      await action();
+    } catch (err) {
+      setError(err.message || "That didn’t work.");
+    } finally {
+      setBusy("");
+    }
   }
 
   return (
@@ -48,16 +78,45 @@ export default function ApartmentDetail() {
             <div>
               <h1 className="page-title">{apartment.name}</h1>
               {apartment.location ? <p className="lede">{apartment.location}</p> : null}
-              <p className={`status ${status.tone}`}>
-                <span className="dot">{status.icon}</span>
-                {status.label}
-                <span style={{ color: "var(--muted)", fontWeight: 500 }}>
-                  {" "}
-                  · Last checked {formatRelativeTime(apartment.lastChecked)}
-                </span>
+              <p className={`status ${monitor.tone}`}>
+                <span className="dot">{monitor.icon}</span>
+                {monitor.label}
+              </p>
+              <p className="lede" style={{ marginBottom: 0 }}>
+                Last successful scrape: {formatDateTime(apartment.lastSuccessfulScrape)}
+                <br />
+                Last attempt: {formatDateTime(apartment.lastAttemptAt || apartment.lastChecked)}
               </p>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="monitor-actions">
+              {source === "api" ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={Boolean(busy) || apartment.monitorState === "active"}
+                    onClick={() => run("start", () => setMonitorState(apartment.id, "active"))}
+                  >
+                    Start monitoring
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={Boolean(busy) || apartment.monitorState === "paused"}
+                    onClick={() => run("pause", () => setMonitorState(apartment.id, "paused"))}
+                  >
+                    Pause monitoring
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={Boolean(busy)}
+                    onClick={() => run("scrape", () => scrapeNow(apartment.id))}
+                  >
+                    {busy === "scrape" ? "Scraping…" : "Scrape now"}
+                  </button>
+                </>
+              ) : null}
               <a className="btn btn-ghost" href={apartment.url} target="_blank" rel="noreferrer">
                 Availability page
               </a>
@@ -74,14 +133,67 @@ export default function ApartmentDetail() {
             </div>
           </div>
 
+          {error ? <p className="error">{error}</p> : null}
+          {apartment.lastError && apartment.consecutiveFailures > 0 ? (
+            <p className="error">{apartment.lastError}</p>
+          ) : null}
+
+          {summary ? (
+            <dl className="change-stats" style={{ marginBottom: 24 }}>
+              <div>
+                <dt>New listings</dt>
+                <dd>{summary.new}</dd>
+              </div>
+              <div>
+                <dt>Price drops</dt>
+                <dd>{summary.priceDrops}</dd>
+              </div>
+              <div>
+                <dt>Availability changes</dt>
+                <dd>{summary.availabilityChanged}</dd>
+              </div>
+              <div>
+                <dt>Recently removed</dt>
+                <dd>{summary.removed}</dd>
+              </div>
+            </dl>
+          ) : null}
+
+          {history.length > 0 ? (
+            <section className="scrape-history">
+              <div className="section-head">
+                <h2>Scrape history</h2>
+                <p>Recent attempts from the backend scheduler</p>
+              </div>
+              <ol className="history-list">
+                {history.map((run) => (
+                  <li key={run.id}>
+                    <span className="history-time">{formatClock(run.completedAt || run.startedAt)}</span>
+                    <span>{run.status === "failed" ? "✕" : "✓"}</span>
+                    <span>
+                      {run.status === "failed"
+                        ? run.errorMessage || "failed"
+                        : `${run.listingsFound} listing${run.listingsFound === 1 ? "" : "s"}`}
+                    </span>
+                    <span className="history-when">{formatRelativeTime(run.completedAt || run.startedAt)}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
+
+          {source === "api" ? <AlertPrefsForm apartmentId={apartment.id} initial={apartment.alertPreferences} /> : null}
+
           <FilterBar filters={filters} onChange={setFilters} showSort />
 
           {listings.length === 0 ? (
             <div className="empty">
               {apartment.listings.length === 0
-                ? source === "api" || source === "extension"
-                  ? "No units yet. Analyze this page in the AptWatch popup."
-                  : "No units yet."
+                ? source === "api"
+                  ? "No units yet. Start monitoring or click Scrape now."
+                  : source === "extension"
+                    ? "No units yet. Analyze this page in the AptWatch popup."
+                    : "No units yet."
                 : "No units match those filters."}
             </div>
           ) : (

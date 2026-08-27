@@ -1,13 +1,14 @@
 import { Link } from "react-router-dom";
-import { isNewListing } from "@shared/listingView.js";
-import { formatRelativeTime } from "../lib/format.js";
+import { apartmentChangeSummary } from "../lib/changes.js";
+import { formatRelativeTime, formatUntil } from "../lib/format.js";
 import { matchingListings } from "../lib/filters.js";
-import { statusMeta } from "../lib/status.js";
+import { changeCount, monitorMeta } from "../lib/status.js";
 
 export default function ApartmentCard({ apartment, filters }) {
   const listings = matchingListings(apartment, filters);
-  const newCount = listings.filter((item) => isNewListing(item)).length;
-  const status = statusMeta(apartment.status);
+  const summary = apartmentChangeSummary(apartment);
+  const monitor = monitorMeta(apartment);
+  const changes = changeCount({ changeSummary: summary });
 
   return (
     <article className="apt-card">
@@ -16,18 +17,20 @@ export default function ApartmentCard({ apartment, filters }) {
           <h2 className="apt-name">{apartment.name}</h2>
           {apartment.location ? <p className="apt-location">{apartment.location}</p> : null}
         </div>
-        {newCount > 0 ? <span className="badge badge-new">🔴 {newCount} NEW</span> : null}
-      </div>
-
-      <div className="unit-count">
-        {listings.length} available unit{listings.length === 1 ? "" : "s"}
+        <span className={`status ${monitor.tone}`}>
+          <span className="dot">{monitor.icon}</span>
+          {monitor.label}
+        </span>
       </div>
 
       <div className="apt-meta">
-        <span>Last checked: {formatRelativeTime(apartment.lastChecked)}</span>
-        <span className={`status ${status.tone}`}>
-          <span className="dot">{status.icon}</span>
-          Status: {status.label}
+        <span>Last checked {formatRelativeTime(apartment.lastChecked)}</span>
+        <span>
+          Next check {apartment.monitorState === "active" ? formatUntil(apartment.nextScrapeAt) : "paused"}
+        </span>
+        <span>
+          {listings.length} listing{listings.length === 1 ? "" : "s"}
+          {changes ? ` · ${changes} change${changes === 1 ? "" : "s"}` : ""}
         </span>
       </div>
 

@@ -1,4 +1,5 @@
 import { migrate, pool, query } from "./db.js";
+import { decideNotification } from "./notify.js";
 
 const GEORGE_ID = "11111111-1111-4111-8111-111111111111";
 const AVALON_ID = "22222222-2222-4222-8222-222222222222";
@@ -8,14 +9,14 @@ await migrate();
 await query("DELETE FROM apartments WHERE id = ANY($1::uuid[])", [[GEORGE_ID, AVALON_ID]]);
 
 await query(
-  `INSERT INTO apartments (id, name, source_url, canonical_url, location, monitoring_status, last_checked_at, created_at)
+  `INSERT INTO apartments (id, name, source_url, canonical_url, location, monitoring_status, last_checked_at, created_at, monitor_state, next_scrape_at)
    VALUES
      ($1, 'The George', 'https://www.equityapartments.com/san-francisco/soma/the-george-apartments',
       'https://www.equityapartments.com/san-francisco/soma/the-george-apartments', 'SoMa, San Francisco',
-      'success', now() - interval '8 minutes', now() - interval '12 days'),
+      'success', now() - interval '8 minutes', now() - interval '12 days', 'active', now() + interval '30 minutes'),
      ($2, 'Avalon Dogpatch', 'https://www.avaloncommunities.com/california/san-francisco-apartments/avalon-dogpatch/',
       'https://www.avaloncommunities.com/california/san-francisco-apartments/avalon-dogpatch', 'Dogpatch, San Francisco',
-      'success', now() - interval '22 minutes', now() - interval '4 days')`,
+      'success', now() - interval '22 minutes', now() - interval '4 days', 'active', now() + interval '30 minutes')`,
   [GEORGE_ID, AVALON_ID],
 );
 
@@ -130,11 +131,11 @@ async function insertUnits(apartmentId, units) {
       `INSERT INTO listings (
          apartment_id, identity_key, unit, price, bedrooms, bathrooms, sqft,
          available_date, floor_plan, listing_url, first_seen_at, last_seen_at,
-         is_active, confidence, source
+         is_active, missing_success_count, confidence, source
        ) VALUES (
          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
          now() - $11::interval, now() - interval '8 minutes',
-         $12, 'HIGH', 'json'
+         $12, $13, 'HIGH', 'json'
        ) RETURNING id, price, available_date`,
       [
         apartmentId,
@@ -149,6 +150,7 @@ async function insertUnits(apartmentId, units) {
         unit.url,
         unit.first,
         unit.active !== false,
+        unit.active === false ? 2 : 0,
       ],
     );
     const listing = inserted.rows[0];
@@ -169,6 +171,97 @@ async function insertUnits(apartmentId, units) {
 
 await insertUnits(GEORGE_ID, georgeUnits);
 await insertUnits(AVALON_ID, avalonUnits);
+
+await query(
+  `INSERT INTO alert_preferences (apartment_id) VALUES ($1), ($2)
+   ON CONFLICT (apartment_id) DO NOTHING`,
+  [GEORGE_ID, AVALON_ID],
+);
+
+async function seedChange(apartmentId, identity, type, previousValue, newValue, ago, details = null) {
+  const listing = await query(
+    "SELECT * FROM listings WHERE apartment_id = $1 AND identity_key = $2",
+    [apartmentId, identity],
+  );
+  const change = await query(
+    `INSERT INTO listing_changes (
+       listing_id, apartment_id, change_type, previous_value, new_value, details, detected_at
+     ) VALUES ($1, $2, $3, $4, $5, $6, now() - $7::interval)
+     RETURNING *`,
+    [listing.rows[0].id, apartmentId, type, previousValue, newValue, details, ago],
+  );
+  return { listing: listing.rows[0], change: change.rows[0] };
+}
+
+await seedChange(GEORGE_ID, "unit:1412", "NEW", null, "1412", "2 hours");
+await seedChange(GEORGE_ID, "unit:1204", "NEW", null, "1204", "3 hours");
+await seedChange(GEORGE_ID, "unit:908", "PRICE_DROP", "4295", "4125", "8 minutes", {
+  previousPrice: 4295,
+  currentPrice: 4125,
+  priceChange: -170,
+  priceChangePercent: -3.96,
+});
+await seedChange(GEORGE_ID, "unit:404", "PRICE_INCREASE", "3495", "3595", "6 days", {
+  previousPrice: 3495,
+  currentPrice: 3595,
+  priceChange: 100,
+  priceChangePercent: 2.86,
+});
+await seedChange(GEORGE_ID, "unit:707", "REMOVED", "707", null, "8 minutes");
+await seedChange(AVALON_ID, "unit:00c-175", "PRICE_DROP", "4410", "4240", "22 minutes", {
+  previousPrice: 4410,
+  currentPrice: 4240,
+  priceChange: -170,
+  priceChangePercent: -3.85,
+});
+await seedChange(AVALON_ID, "unit:00b-368", "AVAILABILITY_CHANGED", "2026-09-05", "2026-08-28", "22 minutes");
+
+const changeRows = await query(
+  `SELECT c.*, a.name AS apartment_name, l.unit, l.price, l.bedrooms, l.sqft,
+          l.available_date, l.listing_url, l.floor_plan
+   FROM listing_changes c
+   JOIN apartments a ON a.id = c.apartment_id
+   JOIN listings l ON l.id = c.listing_id
+   WHERE a.id = ANY($1::uuid[])`,
+  [[GEORGE_ID, AVALON_ID]],
+);
+for (const row of changeRows.rows) {
+  const decided = decideNotification({
+    outcome: "SUCCESS",
+    change: { id: row.id, type: row.change_type, apartmentId: row.apartment_id },
+    listing: {
+      id: row.listing_id,
+      apartmentId: row.apartment_id,
+      apartmentName: row.apartment_name,
+      unit: row.unit,
+      price: row.price,
+      bedrooms: row.bedrooms,
+      sqft: row.sqft,
+      availableDate: row.available_date,
+      listingUrl: row.listing_url,
+      floorPlan: row.floor_plan,
+    },
+  });
+  if (!decided.notify) continue;
+  const note = decided.notification;
+  await query(
+    `INSERT INTO notifications (
+       change_id, apartment_id, listing_id, notification_type, title, body, listing_url, click_url, created_at, delivery_status
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'delivered')
+     ON CONFLICT (change_id) DO NOTHING`,
+    [
+      note.changeId,
+      note.apartmentId,
+      note.listingId,
+      note.notificationType,
+      note.title,
+      note.body,
+      note.listingUrl,
+      note.clickUrl,
+      row.detected_at,
+    ],
+  );
+}
 
 await query(
   `INSERT INTO scrape_runs (apartment_id, started_at, completed_at, status, extraction_method, listings_found, error_message)
