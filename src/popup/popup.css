@@ -14,7 +14,7 @@
 }
 
 body {
-  width: 520px;
+  width: 600px;
   margin: 0;
   padding: 16px;
   color: var(--text);
@@ -31,6 +31,49 @@ h1 {
   font-size: 18px;
   font-weight: 650;
   letter-spacing: -0.02em;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 550;
+  font-size: 12px;
+}
+
+.header-link:hover,
+.header-link[aria-expanded="true"] {
+  text-decoration: underline;
+}
+
+.diag-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.diag-toggle input {
+  width: auto;
+  margin: 0;
 }
 
 h2 {
@@ -179,9 +222,9 @@ form button:hover {
 }
 
 .listings-wrap {
-  max-height: 180px;
+  max-height: 220px;
   overflow: auto;
-  margin-top: 8px;
+  margin-top: 6px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg);
@@ -209,6 +252,62 @@ form button:hover {
 .listings th {
   color: var(--muted);
   font-weight: 600;
+}
+
+.listings th.sortable {
+  padding: 0;
+}
+
+.listings th.sortable button {
+  width: 100%;
+  padding: 5px 7px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.listings th.sortable:hover button {
+  color: var(--text);
+}
+
+.table-tools {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.table-tools input,
+.table-tools select {
+  width: auto;
+  margin: 0;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.table-tools .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.table-tools .narrow {
+  width: 92px;
+  flex: 0 0 92px;
+}
+
+.table-meta {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.persist-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .listings tr:last-child td {
@@ -258,4 +357,170 @@ form button:hover {
 
 .hidden {
   display: none;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.test-extract {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.test-extract[hidden] {
+  display: none;
+}
+
+.test-row {
+  display: flex;
+  gap: 8px;
+}
+
+.test-row input {
+  flex: 1;
+  margin: 0;
+}
+
+.test-extract button,
+.secondary {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 550;
+  flex-shrink: 0;
+}
+
+.test-extract #test-extract-button {
+  background: var(--accent);
+  color: #fff;
+}
+
+.test-extract #test-extract-button:hover:not(:disabled) {
+  background: #173c35;
+}
+
+.test-extract #test-extract-button:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.secondary {
+  background: #ececec;
+  color: var(--text);
+}
+
+.report {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 12px;
+}
+
+.report-row,
+.report-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0 0 8px;
+}
+
+.report-counts span,
+.report-kv {
+  color: var(--muted);
+}
+
+.report-kv strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.strategies {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.strategies .ok {
+  color: #215c3a;
+}
+
+.strategies .miss {
+  color: var(--muted);
+}
+
+.field-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.field-list li {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.field-ok {
+  color: #215c3a;
+}
+
+.field-warn {
+  color: #8a5a12;
+}
+
+.evidence {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.diag-listing {
+  margin: 8px 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.diag-listing-head {
+  font-weight: 600;
+}
+
+.report-pre {
+  max-height: 140px;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: #f3f3f3;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.copy-report {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 550;
+}
+
+.problems {
+  margin: 0 0 8px;
+  padding-left: 16px;
+  color: var(--muted);
 }

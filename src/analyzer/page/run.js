@@ -1,16 +1,34 @@
 AptWatchAnalyzer.run = function run() {
   const candidates = [];
+  const strategyResults = [];
 
   for (const [source, extract] of Object.entries(AptWatchAnalyzer.extractors)) {
+    let result;
     try {
-      const records = extract() || [];
-      for (const record of records) {
-        if (record && typeof record === "object") {
-          candidates.push({ source, record });
-        }
-      }
+      result = extract() || AptWatchAnalyzer.normalizeStrategyResult(source, []);
     } catch (error) {
       console.warn("AptWatch extractor failed:", source, error);
+      result = {
+        listings: [],
+        source,
+        confidence: 0,
+        evidence: [],
+        error: error && error.message ? error.message : String(error),
+      };
+    }
+
+    strategyResults.push({
+      source: result.source || source,
+      label: (AptWatchAnalyzer.STRATEGY_LABELS || {})[result.source || source] || source,
+      listingCount: result.listings.length,
+      confidence: result.confidence,
+      evidence: (result.evidence || []).slice(0, 8),
+      error: result.error || null,
+      worked: result.listings.length > 0 && !result.error,
+    });
+
+    for (const record of result.listings) {
+      candidates.push({ source: result.source || source, record });
     }
   }
 
@@ -18,6 +36,7 @@ AptWatchAnalyzer.run = function run() {
     pageUrl: location.href,
     apartmentName: pageApartmentName(),
     candidates,
+    strategyResults,
   };
 };
 

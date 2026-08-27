@@ -1,11 +1,48 @@
 AptWatchAnalyzer.register("html", function extractHtml() {
   return [
+    ...extractUnitCards(),
     ...extractFromTables(),
     ...extractFromMicrodata(),
     ...extractFromDataAttributes(),
     ...extractHeadingCards(),
   ];
 });
+
+function extractUnitCards() {
+  const records = [];
+  const nodes = document.querySelectorAll(
+    ".unit-item, [class*='unit-item'], [class*='unit-card'], [class*='unitCard'], article",
+  );
+
+  for (const node of nodes) {
+    const text = (node.innerText || "").replace(/\s+/g, " ").trim();
+    if (text.length < 20 || text.length > 2000) continue;
+    if (!hasPriceSignal(text)) continue;
+    if (!/(bed|bath|studio|sq\.?\s*ft|sqft)/i.test(text)) continue;
+
+    const record = AptWatchAnalyzer.recordFromVisibleText(text);
+    const heading = node.querySelector("h2, h3, h4");
+    if (heading) {
+      const headingRecord = AptWatchAnalyzer.recordFromVisibleText(heading.innerText.trim());
+      record.unit = headingRecord.unit || record.unit;
+      record.floorPlan = record.floorPlan || headingRecord.floorPlan;
+    }
+    const link = node.querySelector("a[href*='apartment'], a[href*='unit'], a[href]:not([href^='#'])");
+    if (link?.href && !/#/.test(link.getAttribute("href") || "")) record.url = link.href;
+    else     if (link?.href && /\/apartment\//.test(link.href)) record.url = link.href;
+    if (hasListingShape(record)) records.push(AptWatchAnalyzer.stampRecord(record, node, "unit-card"));
+  }
+
+  return records;
+}
+
+function hasPriceSignal(text) {
+  return (
+    /\$\s*[\d,]{3,}/.test(text) ||
+    /price\s*:?\s*\$?[\d,]{3,}/i.test(text) ||
+    /starting at\s*\$?[\d,]/i.test(text)
+  );
+}
 
 function extractFromTables() {
   const records = [];
@@ -38,7 +75,9 @@ function extractFromTables() {
       });
       const link = row.querySelector("a[href]");
       if (link?.href) record.url = link.href;
-      if (Object.keys(record).filter((key) => key !== "text").length >= 2) records.push(record);
+      if (Object.keys(record).filter((key) => key !== "text").length >= 2) {
+        records.push(AptWatchAnalyzer.stampRecord(record, row, "table"));
+      }
     }
   }
 
@@ -101,7 +140,7 @@ function extractFromMicrodata() {
       text: (node.innerText || "").replace(/\s+/g, " ").trim(),
     };
 
-    if (hasListingShape(record)) records.push(record);
+    if (hasListingShape(record)) records.push(AptWatchAnalyzer.stampRecord(record, node, "microdata"));
   }
 
   return records;
@@ -122,7 +161,7 @@ function extractFromDataAttributes() {
     record.price = node.getAttribute("data-price") || node.getAttribute("data-rent") || record.price;
     const link = node.querySelector("a[href]") || (node.tagName === "A" ? node : null);
     if (link?.href) record.url = link.href;
-    if (hasListingShape(record)) records.push(record);
+    if (hasListingShape(record)) records.push(AptWatchAnalyzer.stampRecord(record, node, "data-attr"));
   }
 
   return records;
@@ -136,14 +175,17 @@ function extractHeadingCards() {
     if (!parent) continue;
     const text = (parent.innerText || "").replace(/\s+/g, " ").trim();
     if (parent.querySelector("table")) continue;
+    if (text.length < 20 || text.length > 1500) continue;
     if (!/(\$\s*[\d,]{3,}|starting at\s*\$?[\d,]|price\s*:?\s*[\d,])/i.test(text)) continue;
     if (!/(bed|bath|studio|sq\.?\s*ft|sqft)/i.test(text)) continue;
 
     const record = AptWatchAnalyzer.recordFromVisibleText(text);
-    record.floorPlan = record.floorPlan || heading.innerText.trim();
-    const link = parent.querySelector("a[href]");
+    const headingRecord = AptWatchAnalyzer.recordFromVisibleText(heading.innerText.trim());
+    record.unit = headingRecord.unit || record.unit;
+    record.floorPlan = record.floorPlan || headingRecord.floorPlan;
+    const link = parent.querySelector("a[href]:not([href^='#'])");
     if (link?.href) record.url = link.href;
-    if (hasListingShape(record)) records.push(record);
+    if (hasListingShape(record)) records.push(AptWatchAnalyzer.stampRecord(record, parent, "heading-card"));
   }
 
   return records;

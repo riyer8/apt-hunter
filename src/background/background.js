@@ -1,11 +1,15 @@
-import { buildListings, classify } from "../analyzer/classify.js";
+import { classify } from "../analyzer/classify.js";
+import { buildDiagnosticReport, diagnose } from "../analyzer/diagnostics.js";
 import { nullsToNull } from "../analyzer/listings.js";
 import {
+  applyLedgerToListings,
   getApartment,
   getExtractedListings,
   saveExtractedListings,
+  saveLastTestExtraction,
   STATUS,
   updateApartment,
+  updateListingLedger,
 } from "../lib/storage.js";
 
 const EXTRACTOR_FILES = [
@@ -15,12 +19,14 @@ const EXTRACTOR_FILES = [
   "src/analyzer/page/extractors/jsData.js",
   "src/analyzer/page/extractors/html.js",
   "src/analyzer/page/extractors/text.js",
+  "src/analyzer/page/extractors/api.js",
   "src/analyzer/page/run.js",
 ];
 
 const LOAD_TIMEOUT_MS = 25000;
 const RENDER_WAIT_MS = 4000;
 const RETRY_WAIT_MS = 3500;
+const TEST_LOCK = "__test_extraction__";
 
 const analyzing = new Set();
 
@@ -29,13 +35,21 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== "ANALYZE_APARTMENT") return undefined;
+  if (message?.type === "ANALYZE_APARTMENT") {
+    analyzeApartment(message.id, message.url)
+      .then((result) => sendResponse({ ok: true, result }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
 
-  analyzeApartment(message.id, message.url)
-    .then((result) => sendResponse({ ok: true, result }))
-    .catch((error) => sendResponse({ ok: false, error: error.message }));
+  if (message?.type === "TEST_EXTRACTION") {
+    testExtraction(message.url)
+      .then((result) => sendResponse({ ok: true, result }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
 
-  return true;
+  return undefined;
 });
 
 async function analyzeApartment(id, url) {
@@ -50,38 +64,18 @@ async function analyzeApartment(id, url) {
   });
 
   const apartment = await getApartment(id);
-  let tabId;
-  let createdTab = false;
   try {
-    const tabInfo = await getOrOpenTab(url);
-    tabId = tabInfo.tabId;
-    createdTab = tabInfo.created;
-    await waitForTabLoad(tabId);
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      func: () => window.scrollTo(0, document.body.scrollHeight),
-    }).catch(() => {});
-    await sleep(RENDER_WAIT_MS);
-
-    let extracted = await extractCandidatesFromTab(tabId);
-    if (!extracted.candidates.length) {
-      await sleep(RETRY_WAIT_MS);
-      extracted = await extractCandidatesFromTab(tabId);
-    }
-
-    const now = new Date().toISOString();
     const previousListings = apartment?.listings?.length
       ? apartment.listings
       : await getExtractedListings(id);
-    const listings = buildListings(extracted.candidates, {
-      apartmentName: apartment?.name || extracted.apartmentName,
-      sourceUrl: url,
+    const extracted = await extractPage(url, {
+      apartmentName: apartment?.name,
       previousListings,
-      now,
-    }).map(nullsToNull);
-
-    const classified = classify(listings);
-    const savedListings = classified.listings.slice(0, 150);
+    });
+    const classified = extracted.classified;
+    const savedListings = classified.listings.slice(0, 150).map(nullsToNull);
+    const ledger = await updateListingLedger(savedListings);
+    const listingsWithHistory = applyLedgerToListings(savedListings, ledger).map(nullsToNull);
     const analysis = {
       outcome: classified.outcome,
       headline: classified.headline,
@@ -89,16 +83,17 @@ async function analyzeApartment(id, url) {
       listingCount: classified.listingCount,
       fieldsDetected: classified.fieldsDetected,
       strategies: classified.strategies,
-      analyzedAt: now,
+      analyzedAt: extracted.report.analyzedAt,
+      diagnostics: extracted.report,
     };
 
     await updateApartment(id, {
       status: statusFromOutcome(analysis.outcome),
-      listings: savedListings,
+      listings: listingsWithHistory,
+      lastChecked: analysis.analyzedAt,
       analysis,
     });
-    await saveExtractedListings(id, savedListings);
-
+    await saveExtractedListings(id, listingsWithHistory);
     return analysis;
   } catch (error) {
     const analysis = {
@@ -114,6 +109,102 @@ async function analyzeApartment(id, url) {
     return analysis;
   } finally {
     analyzing.delete(id);
+  }
+}
+
+async function testExtraction(url) {
+  if (analyzing.has(TEST_LOCK)) {
+    return { outcome: "PENDING" };
+  }
+
+  analyzing.add(TEST_LOCK);
+  await saveLastTestExtraction({
+    url,
+    outcome: "ANALYZING",
+    headline: "Testing extraction…",
+    summaryText: `URL: ${url}\nExtraction method: running…`,
+  });
+
+  try {
+    const extracted = await extractPage(url, { apartmentName: "", previousListings: [] });
+    await saveLastTestExtraction(extracted.report);
+    return extracted.report;
+  } catch (error) {
+    const failed = {
+      url,
+      outcome: "FAILED",
+      headline: "✕ Could not reliably detect apartment availability",
+      extractionMethod: "none",
+      listingsFound: 0,
+      validListings: 0,
+      duplicatesRemoved: 0,
+      rejected: 0,
+      fieldsDetected: [],
+      confidence: "none",
+      problems: [error.message],
+      recommendedNextStep: "Reload the extension and try again. If the tab was blocked, grant access to the site.",
+      strategies: [],
+      listings: [],
+      summaryText: `URL: ${url}\nExtraction method: none\nProblems:\n- ${error.message}`,
+      analyzedAt: new Date().toISOString(),
+    };
+    await saveLastTestExtraction(failed);
+    return failed;
+  } finally {
+    analyzing.delete(TEST_LOCK);
+  }
+}
+
+async function extractPage(url, { apartmentName, previousListings }) {
+  let tabId;
+  let createdTab = false;
+  const warnings = [];
+
+  try {
+    const tabInfo = await getOrOpenTab(url);
+    tabId = tabInfo.tabId;
+    createdTab = tabInfo.created;
+    await waitForTabLoad(tabId);
+
+    await chrome.scripting
+      .executeScript({
+        target: { tabId },
+        func: () => window.scrollTo(0, document.body.scrollHeight),
+      })
+      .catch((error) => {
+        warnings.push(`Scroll failed: ${error.message}`);
+      });
+    await sleep(RENDER_WAIT_MS);
+
+    let extracted = await extractCandidatesFromTab(tabId);
+    if (!extracted.candidates.length) {
+      await sleep(RETRY_WAIT_MS);
+      extracted = await extractCandidatesFromTab(tabId);
+      if (extracted.candidates.length) warnings.push("First pass found nothing; retry after wait succeeded.");
+    }
+
+    const now = new Date().toISOString();
+    const diagnosis = diagnose(extracted.candidates, {
+      apartmentName: apartmentName || extracted.apartmentName,
+      sourceUrl: url,
+      previousListings: previousListings || [],
+      now,
+    }, {
+      strategyResults: extracted.strategyResults || [],
+      warnings,
+    });
+    const listings = diagnosis.listings.map(nullsToNull);
+    const classified = classify(listings);
+    const report = buildDiagnosticReport({
+      url,
+      apartmentName: apartmentName || extracted.apartmentName,
+      diagnosis: { ...diagnosis, listings },
+      classified,
+      warnings,
+    });
+
+    return { listings, classified, diagnosis, report, extracted };
+  } finally {
     if (createdTab && tabId != null) {
       chrome.tabs.remove(tabId).catch(() => {});
     }
@@ -170,7 +261,7 @@ async function extractCandidatesFromTab(tabId) {
       target: { tabId, allFrames: true },
       func: () => {
         const analyzer = globalThis.AptWatchAnalyzer;
-        return analyzer?.run ? analyzer.run() : { candidates: [], pageUrl: location.href };
+        return analyzer?.run ? analyzer.run() : { candidates: [], strategyResults: [], pageUrl: location.href };
       },
     })
     .catch(() =>
@@ -178,12 +269,13 @@ async function extractCandidatesFromTab(tabId) {
         target: { tabId },
         func: () => {
           const analyzer = globalThis.AptWatchAnalyzer;
-          return analyzer?.run ? analyzer.run() : { candidates: [], pageUrl: location.href };
+          return analyzer?.run ? analyzer.run() : { candidates: [], strategyResults: [], pageUrl: location.href };
         },
       }),
     );
 
   const candidates = [];
+  const strategyResults = [];
   let pageUrl = "";
   let apartmentName = "";
   for (const frame of frames || []) {
@@ -192,9 +284,10 @@ async function extractCandidatesFromTab(tabId) {
     pageUrl = payload.pageUrl || pageUrl;
     apartmentName = payload.apartmentName || apartmentName;
     if (payload.candidates) candidates.push(...payload.candidates);
+    if (payload.strategyResults) strategyResults.push(...payload.strategyResults);
   }
 
-  return { candidates, pageUrl, apartmentName };
+  return { candidates, strategyResults, pageUrl, apartmentName };
 }
 
 function statusFromOutcome(outcome) {

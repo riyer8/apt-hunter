@@ -14,10 +14,18 @@ AptWatchAnalyzer.register("jsData", function extractJsData() {
   const records = [];
   for (const bucket of buckets) {
     if (Array.isArray(bucket)) {
-      records.push(...bucket.filter((item) => item && typeof item === "object"));
+      records.push(
+        ...bucket.filter((item) => item && typeof item === "object" && AptWatchAnalyzer.isUnitLike(item)).map((item) => {
+          item._method = item._method || "page-state";
+          return item;
+        }),
+      );
       continue;
     }
-    if (bucket && typeof bucket === "object") records.push(bucket);
+    if (bucket && typeof bucket === "object" && AptWatchAnalyzer.isUnitLike(bucket)) {
+      bucket._method = bucket._method || "page-state";
+      records.push(bucket);
+    }
   }
   return records;
 });

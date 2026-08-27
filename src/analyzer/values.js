@@ -31,6 +31,20 @@ export function emptyToNull(value) {
   return value;
 }
 
+export function unwrapScalar(value, depth = 0) {
+  if (value == null || depth > 5) return null;
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (typeof value === "string") return value;
+  if (typeof value !== "object") return null;
+  if (Array.isArray(value)) return unwrapScalar(value[0], depth + 1);
+  if (value.prices != null) return unwrapScalar(value.prices, depth + 1);
+  if (value.price != null && typeof value.price !== "object") return value.price;
+  if (typeof value.netEffectivePrice === "number") return value.netEffectivePrice;
+  if (value.value != null && typeof value.value !== "object") return value.value;
+  if (typeof value.name === "string") return value.name;
+  return null;
+}
+
 export function parsePrice(value) {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
     return Math.round(value);
@@ -141,7 +155,7 @@ export function parseDate(value) {
     }
   }
 
-  const iso = text.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  const iso = text.match(/\b(\d{4})-(\d{2})-(\d{2})(?:[T\s]|$|\b)/);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
 
   const us = text.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/);
@@ -178,15 +192,28 @@ export function parseDate(value) {
 
 export function parseUnit(value) {
   if (value == null) return null;
+  if (typeof value === "object") {
+    value = unwrapScalar(value);
+    if (value == null || typeof value === "object") return null;
+  }
   const text = String(value).trim();
-  if (!text) return null;
-  if (/^(unit|apt|apartment|rent|price|availability|floor plan|studio)$/i.test(text)) return null;
-  if (/apartments?|community|residences|complex|property/i.test(text) && !/\d/.test(text)) {
+  if (!text || /^\[object /i.test(text)) return null;
+  if (/^(unit|apt|apartment|rent|price|availability|floor plan|studio|listings?)$/i.test(text)) {
+    return null;
+  }
+  if (/apartments?|community|residences|complex|property|listings?/i.test(text) && !/\d/.test(text)) {
     return null;
   }
 
-  const labeled = text.match(/\b(?:unit|apt\.?|#)\s*([A-Z0-9-]{1,12})\b/i);
-  if (labeled) return labeled[1].toUpperCase();
+  const avalon = text.match(/\b(\d{2}[A-Z]-\d{2,5})\b/i);
+  if (avalon) return avalon[1].toUpperCase();
+
+  if (/^https?:\/\//i.test(text) || text.includes("#community") || text.startsWith("#")) {
+    return null;
+  }
+
+  const labeled = text.match(/\b(?:unit|apt\.?)\s*[#:]?\s*([A-Z0-9][A-Z0-9-]{0,11})\b/i);
+  if (labeled && /\d/.test(labeled[1])) return labeled[1].toUpperCase();
 
   if (isUnitCode(text, { allowPlainNumber: true })) return text.toUpperCase();
 
@@ -199,18 +226,26 @@ export function parseUnit(value) {
 }
 
 function isUnitCode(value, { allowPlainNumber = false } = {}) {
-  if (!value || value.length > 16) return false;
+  if (!value || value.length > 24) return false;
   if (/^(19|20)\d{2}$/.test(value)) return false;
+  if (/listings?|community|floorplan|specials?/i.test(value)) return false;
   if (/^\d+$/.test(value)) return Boolean(allowPlainNumber && value.length >= 2 && value.length <= 6);
   return /^(?:[A-Z]{1,3}-)?\d+[A-Z0-9]*(?:-[A-Z0-9]{1,8})?$/i.test(value);
 }
 
 export function parseFloorPlan(value) {
   if (value == null) return null;
+  if (typeof value === "object") {
+    value = unwrapScalar(value);
+    if (value == null || typeof value === "object") return null;
+  }
   const text = String(value).replace(/\s+/g, " ").trim();
-  if (!text) return null;
-  if (/^(floor\s*plan|plan|layout|model)$/i.test(text)) return null;
-  if (/apartments?|community|residences|available/i.test(text) && text.length > 40) return null;
+  if (!text || /^\[object /i.test(text)) return null;
+  if (/^(floor\s*plan|plan|layout|model|listings?)$/i.test(text)) return null;
+  if (/^https?:|^#/i.test(text)) return null;
+  if (/apartments?|community|residences|available|listings?/i.test(text) && text.length > 40) {
+    return null;
+  }
 
   const named = text.match(
     /\b((?:corner\s+)?(?:alcove\s+)?studio|(?:corner\s+)?\d+\s+bed(?:room)?s?)\b/i,
@@ -219,8 +254,14 @@ export function parseFloorPlan(value) {
 
   const labeled = text.match(/\b(?:plan|floor\s*plan|model)\s*[:#-]?\s*([A-Z0-9][A-Z0-9 _-]{0,24})\b/i);
   if (labeled) return labeled[1].trim();
-  if (/^[A-Z0-9][A-Z0-9 _-]{0,32}$/i.test(text)) return text;
-  if (text.length <= 40 && !/price|available|view unit/i.test(text)) return text;
+  if (/^[A-Z0-9][A-Z0-9 _-]{0,32}$/i.test(text) && /\d/.test(text)) return text;
+  if (
+    text.length <= 40 &&
+    /plan|studio|bed|layout|model/i.test(text) &&
+    !/price|available|view unit|listing/i.test(text)
+  ) {
+    return text;
+  }
   return null;
 }
 

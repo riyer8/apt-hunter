@@ -11,13 +11,16 @@ import {
   parseSqft,
   parseUnit,
   parseUrl,
+  unwrapScalar,
 } from "./values.js";
 
 export const STRATEGY_RANK = {
-  json: 1,
-  jsData: 2,
-  html: 3,
-  text: 4,
+  jsonLd: 1,
+  json: 2,
+  jsData: 3,
+  html: 4,
+  text: 5,
+  api: 99,
 };
 
 export const CONFIDENCE = {
@@ -54,6 +57,8 @@ export function createListing() {
     lastSeen: null,
     confidence: CONFIDENCE.LOW,
     source: null,
+    sources: [],
+    evidence: {},
   };
 }
 
@@ -90,65 +95,276 @@ export function scoreConfidence(listing, source) {
   return CONFIDENCE.LOW;
 }
 
-export function candidateToListing(candidate, { apartmentName, sourceUrl, now }) {
+export function candidateToListing(candidate, context) {
+  return convertCandidate(candidate, context).listing;
+}
+
+export function convertCandidate(candidate, { apartmentName, sourceUrl, now }) {
   const raw = candidate.record || {};
+  const selector = raw._selector || null;
+  const method = raw._method || null;
   const combinedText =
     typeof raw.text === "string" && raw.text.trim()
       ? raw.text
-      : Object.values(raw)
-          .filter((value) => typeof value === "string")
+      : Object.entries(raw)
+          .filter(([key, value]) => !key.startsWith("_") && typeof value === "string")
+          .map(([, value]) => value)
           .join(" ");
   const textFacts = extractFactsFromText(combinedText);
   const bedsBaths = parseBedsBaths(combinedText);
+  const snippet = clipEvidence(combinedText);
 
   const listing = createListing();
   listing.apartmentName = parseApartmentName(apartmentName) || parseApartmentName(raw.apartmentName);
-  listing.unit = parseUnit(pick(raw, ["unit", "unitNumber", "unitNo", "apt"])) || textFacts.unit;
-  listing.price = firstNumber(parsePrice(pick(raw, ["price", "rent", "monthlyRent", "minRent"])), textFacts.price);
-  listing.bedrooms = firstNumber(
-    parseBedrooms(pick(raw, ["bedrooms", "beds", "bed", "numberOfBedrooms"])),
-    bedsBaths.bedrooms,
-    textFacts.bedrooms,
+  listing.sourceUrl = sourceUrl || null;
+  listing.source = candidate.source;
+  listing.sources = [candidate.source].filter(Boolean);
+  listing.firstSeen = now;
+  listing.lastSeen = now;
+
+  assignField(listing, "unit", parseUnit(pick(raw, ["unit", "unitNumber", "unitNo", "unitId", "unitName", "apt"])), {
+    source: candidate.source,
+    origin: "record",
+    selector,
+    method,
+    snippet,
+    fallback: textFacts.unit,
+  });
+  if (listing.unit == null && textFacts.unit) {
+    assignField(listing, "unit", textFacts.unit, {
+      source: candidate.source,
+      origin: "text",
+      selector,
+      method,
+      snippet,
+    });
+  }
+
+  assignField(
+    listing,
+    "price",
+    firstNumber(
+      parsePrice(pick(raw, ["price", "rent", "monthlyRent", "minRent", "startingAtPricesUnfurnished", "lowestPrice"])),
+    ),
+    {
+      source: candidate.source,
+      origin: "record",
+      selector,
+      method,
+      snippet,
+      fallback: textFacts.price,
+    },
   );
-  listing.bathrooms = firstNumber(
-    parseBathrooms(pick(raw, ["bathrooms", "baths", "bath", "numberOfBathroomsTotal"])),
-    bedsBaths.bathrooms,
-    textFacts.bathrooms,
+  if (listing.price == null && textFacts.price != null) {
+    assignField(listing, "price", textFacts.price, {
+      source: candidate.source,
+      origin: "text",
+      selector,
+      method,
+      snippet,
+    });
+  }
+
+  assignField(
+    listing,
+    "bedrooms",
+    firstNumber(parseBedrooms(pick(raw, ["bedrooms", "beds", "bed", "bedroomNumber", "numberOfBedrooms"]))),
+    {
+      source: candidate.source,
+      origin: "record",
+      selector,
+      method,
+      snippet,
+      fallback: firstNumber(bedsBaths.bedrooms, textFacts.bedrooms),
+    },
   );
-  listing.sqft = firstNumber(parseSqft(pick(raw, ["sqft", "squareFeet", "floorSize", "size"])), textFacts.sqft);
-  listing.availableDate =
-    parseDate(pick(raw, ["availableDate", "availableOn", "available", "availability"])) || textFacts.availableDate;
-  listing.floorPlan =
-    parseFloorPlan(pick(raw, ["floorPlan", "floorPlanName", "plan", "model"])) ||
-    textFacts.floorPlan ||
-    parseFloorPlan(combinedText);
+  if (listing.bedrooms == null) {
+    const beds = firstNumber(bedsBaths.bedrooms, textFacts.bedrooms);
+    if (beds != null) {
+      assignField(listing, "bedrooms", beds, {
+        source: candidate.source,
+        origin: "text",
+        selector,
+        method,
+        snippet,
+      });
+    }
+  }
+
+  assignField(
+    listing,
+    "bathrooms",
+    firstNumber(parseBathrooms(pick(raw, ["bathrooms", "baths", "bath", "bathroomNumber", "numberOfBathroomsTotal"]))),
+    {
+      source: candidate.source,
+      origin: "record",
+      selector,
+      method,
+      snippet,
+      fallback: firstNumber(bedsBaths.bathrooms, textFacts.bathrooms),
+    },
+  );
+  if (listing.bathrooms == null) {
+    const baths = firstNumber(bedsBaths.bathrooms, textFacts.bathrooms);
+    if (baths != null) {
+      assignField(listing, "bathrooms", baths, {
+        source: candidate.source,
+        origin: "text",
+        selector,
+        method,
+        snippet,
+      });
+    }
+  }
+
+  assignField(listing, "sqft", firstNumber(parseSqft(pick(raw, ["sqft", "squareFeet", "floorSize", "size"]))), {
+    source: candidate.source,
+    origin: "record",
+    selector,
+    method,
+    snippet,
+    fallback: textFacts.sqft,
+  });
+  if (listing.sqft == null && textFacts.sqft != null) {
+    assignField(listing, "sqft", textFacts.sqft, {
+      source: candidate.source,
+      origin: "text",
+      selector,
+      method,
+      snippet,
+    });
+  }
+
+  assignField(
+    listing,
+    "availableDate",
+    parseDate(
+      pick(raw, [
+        "availableDate",
+        "availableDateUnfurnished",
+        "availableOn",
+        "available",
+        "availability",
+        "moveInDate",
+      ]),
+    ),
+    {
+      source: candidate.source,
+      origin: "record",
+      selector,
+      method,
+      snippet,
+      fallback: textFacts.availableDate,
+      ambiguous: false,
+    },
+  );
+  if (listing.availableDate == null && textFacts.availableDate) {
+    assignField(listing, "availableDate", textFacts.availableDate, {
+      source: candidate.source,
+      origin: "text",
+      selector,
+      method,
+      snippet,
+    });
+  }
+  if (listing.availableDate && dateLooksAmbiguous(listing.availableDate) && listing.evidence.availableDate) {
+    listing.evidence.availableDate.ambiguous = true;
+  }
+
+  assignField(listing, "floorPlan", parseFloorPlan(pick(raw, ["floorPlan", "floorPlanName", "plan", "model"])), {
+    source: candidate.source,
+    origin: "record",
+    selector,
+    method,
+    snippet,
+    fallback: textFacts.floorPlan || parseFloorPlan(combinedText),
+  });
+  if (listing.floorPlan == null) {
+    const plan = textFacts.floorPlan || parseFloorPlan(combinedText);
+    if (plan) {
+      assignField(listing, "floorPlan", plan, {
+        source: candidate.source,
+        origin: "text",
+        selector,
+        method,
+        snippet,
+      });
+    }
+  }
 
   if (!listing.unit && !listing.floorPlan && listing.bedrooms != null) {
-    listing.floorPlan =
+    const inferred =
       listing.bedrooms === 0
         ? "Studio"
         : `${listing.bedrooms} Bed${listing.bathrooms != null ? ` ${listing.bathrooms} Bath` : ""}`;
+    assignField(listing, "floorPlan", inferred, {
+      source: candidate.source,
+      origin: "inferred",
+      selector,
+      method,
+      snippet,
+      inferred: true,
+      ambiguous: true,
+    });
   }
-  listing.listingUrl = parseUrl(pick(raw, ["url", "href", "listingUrl", "applyUrl"]), sourceUrl);
-  listing.sourceUrl = sourceUrl || null;
-  listing.source = candidate.source;
-  listing.firstSeen = now;
-  listing.lastSeen = now;
+
+  assignField(listing, "listingUrl", parseUrl(pick(raw, ["url", "href", "listingUrl", "applyUrl"]), sourceUrl), {
+    source: candidate.source,
+    origin: "record",
+    selector,
+    method,
+    snippet,
+  });
+
   listing.id = listingId(listing);
 
-  if (!listing.id) return null;
+  if (!listing.id) {
+    return { listing: null, reason: "no identity (need a unit number or floor plan)", snippet };
+  }
+  if (isJunkListing(listing)) {
+    return { listing: null, reason: "rejected as junk or marketing copy", snippet };
+  }
 
   const facts = ["price", "bedrooms", "bathrooms", "sqft", "availableDate"].filter(
     (field) => listing[field] != null,
   );
-  if (facts.length === 0) return null;
+  if (facts.length === 0) {
+    return { listing: null, reason: "no price, beds, baths, sqft, or date", snippet };
+  }
 
   listing.confidence = scoreConfidence(listing, candidate.source);
-  return listing;
+  return { listing, reason: null, snippet };
+}
+
+function assignField(listing, field, value, meta) {
+  if (value == null || value === "") return;
+  listing[field] = value;
+  listing.evidence[field] = {
+    value,
+    source: meta.source,
+    origin: meta.origin,
+    method: meta.method || null,
+    selector: meta.selector || null,
+    snippet: meta.origin === "text" ? meta.snippet || clipEvidence(value) : clipEvidence(value),
+    ambiguous: Boolean(meta.ambiguous),
+    inferred: Boolean(meta.inferred),
+  };
+}
+
+function dateLooksAmbiguous(value) {
+  if (value == null || value === "now") return false;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return false;
+  return true;
+}
+
+function clipEvidence(value) {
+  if (value == null) return "";
+  const text = typeof value === "string" ? value : String(value);
+  return text.replace(/\s+/g, " ").trim().slice(0, 180);
 }
 
 export function mergeListings(preferred, extra) {
-  const merged = { ...preferred };
+  const merged = { ...preferred, evidence: { ...(preferred.evidence || {}) } };
   for (const field of [
     "apartmentName",
     "unit",
@@ -161,8 +377,14 @@ export function mergeListings(preferred, extra) {
     "listingUrl",
     "sourceUrl",
   ]) {
-    if (merged[field] == null && extra[field] != null) merged[field] = extra[field];
+    if (merged[field] == null && extra[field] != null) {
+      merged[field] = extra[field];
+      if (extra.evidence?.[field]) merged.evidence[field] = extra.evidence[field];
+    }
   }
+  merged.sources = [...new Set([...(preferred.sources || [preferred.source]), ...(extra.sources || [extra.source])])].filter(
+    Boolean,
+  );
   merged.firstSeen = earlier(preferred.firstSeen, extra.firstSeen);
   merged.lastSeen = extra.lastSeen || preferred.lastSeen;
   if ((STRATEGY_RANK[extra.source] || 99) < (STRATEGY_RANK[preferred.source] || 99)) {
@@ -189,6 +411,17 @@ export function dedupeListings(listings) {
   }
 
   return [...byId.values()];
+}
+
+export function preferUnitIdentities(listings) {
+  const hasUnits = listings.some((listing) => listing.unit);
+  if (!hasUnits) return listings;
+  return listings.filter((listing) => {
+    if (listing.unit) return true;
+    return !/^(studio|\d+\s+bed(?:room)?s?(?:\s+\d+(?:\.\d+)?\s+bath(?:room)?s?)?)$/i.test(
+      listing.floorPlan || "",
+    );
+  });
 }
 
 export function sortListings(listings) {
@@ -218,11 +451,35 @@ function pick(raw, keys) {
   for (const key of keys) {
     const match = Object.entries(raw).find(([candidate]) => normalizeKey(candidate) === normalizeKey(key));
     if (match && match[1] != null && match[1] !== "") {
-      if (typeof match[1] === "object" && match[1].value != null) return match[1].value;
-      return match[1];
+      const unwrapped = unwrapScalar(match[1]);
+      if (unwrapped != null && unwrapped !== "") return unwrapped;
     }
   }
   return null;
+}
+
+function isJunkListing(listing) {
+  if (/^\[object /i.test(String(listing.unit || "")) || /^\[object /i.test(String(listing.floorPlan || ""))) {
+    return true;
+  }
+  if (/listings?/i.test(String(listing.unit || "")) && !/\d/.test(String(listing.unit || ""))) {
+    return true;
+  }
+  const url = listing.listingUrl || "";
+  if (url.includes("#") && !listing.unit) {
+    try {
+      if (new URL(url).hash) return true;
+    } catch {
+      return true;
+    }
+  }
+  const genericPlan = /^(studio|\d+\s+bed(?:room)?s?(?:\s+\d+(?:\.\d+)?\s+bath(?:room)?s?)?)$/i.test(
+    listing.floorPlan || "",
+  );
+  if (!listing.unit && genericPlan && listing.sqft == null && listing.availableDate == null) {
+    return true;
+  }
+  return false;
 }
 
 function normalizeKey(key) {

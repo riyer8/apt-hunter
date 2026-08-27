@@ -17,6 +17,7 @@
     "pageData",
     "appData",
     "rentalData",
+    "Fusion",
   ];
 
   const ARRAY_KEYS =
@@ -31,7 +32,17 @@
     const keys = Object.keys(obj).map((key) => key.toLowerCase());
     const has = (parts) => keys.some((key) => parts.some((part) => key.includes(part)));
     const identity = has(["unit", "apt", "floorplan", "floor_plan", "plan"]);
-    const facts = has(["price", "rent", "bed", "bath", "sqft", "sq_ft", "available", "vacant"]);
+    const facts = has([
+      "price",
+      "rent",
+      "bed",
+      "bath",
+      "sqft",
+      "sq_ft",
+      "square",
+      "available",
+      "vacant",
+    ]);
     return identity && facts;
   }
 
@@ -92,7 +103,7 @@
 
   try {
     for (const key of Object.keys(window)) {
-      if (!/unit|apartment|floorplan|listing|availability|rent|propertydata|pagedata/i.test(key)) {
+      if (!/unit|apartment|floorplan|listing|availability|rent|propertydata|pagedata|^Fusion$/i.test(key)) {
         continue;
       }
       collect(window[key], 0, visited, buckets);

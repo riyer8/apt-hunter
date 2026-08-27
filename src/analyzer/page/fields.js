@@ -44,6 +44,10 @@ AptWatchAnalyzer.FIELD_ALIASES = {
     "baseprice",
     "advertisedrent",
     "grossrent",
+    "lowestprice",
+    "ondemandprice",
+    "startingatpricesunfurnished",
+    "startingatpricesfurnished",
   ],
   bedrooms: [
     "bedrooms",
@@ -57,6 +61,7 @@ AptWatchAnalyzer.FIELD_ALIASES = {
     "nbeds",
     "br",
     "studio",
+    "bedroomnumber",
   ],
   bathrooms: [
     "bathrooms",
@@ -68,6 +73,7 @@ AptWatchAnalyzer.FIELD_ALIASES = {
     "bathroomcount",
     "nbaths",
     "ba",
+    "bathroomnumber",
   ],
   sqft: [
     "sqft",
@@ -95,6 +101,8 @@ AptWatchAnalyzer.FIELD_ALIASES = {
     "moveindate",
     "availabletext",
     "datavailable",
+    "availabledateunfurnished",
+    "availabledatefurnished",
   ],
   url: [
     "url",
@@ -158,15 +166,19 @@ AptWatchAnalyzer.isUnitLike = function isUnitLike(obj) {
   const facts = ["price", "bedrooms", "bathrooms", "sqft", "availableDate"].filter((field) =>
     fields.includes(field),
   );
-  return (identity && facts.length >= 1) || facts.length >= 2;
+  return identity && facts.length >= 1;
 };
 
 AptWatchAnalyzer.recordFromVisibleText = function recordFromVisibleText(text) {
   const compact = (text || "").replace(/\s+/g, " ").trim();
   const record = { text: compact };
 
-  const unitMatch = compact.match(/\b(?:unit|apt\.?|#)\s*([A-Z0-9-]{1,12})\b/i);
-  if (unitMatch) record.unit = unitMatch[1];
+  const unitMatch = compact.match(/\b(?:unit|apt\.?)\s*[#:]?\s*([A-Z0-9][A-Z0-9-]{0,11})\b/i);
+  if (unitMatch && /\d/.test(unitMatch[1])) record.unit = unitMatch[1];
+  if (!record.unit) {
+    const avalon = compact.match(/\b(\d{2}[A-Z]-\d{2,5})\b/i);
+    if (avalon) record.unit = avalon[1];
+  }
   if (!record.unit) {
     const first = compact.split(/[\s•|,]+/)[0];
     const rest = compact.slice(first.length);
@@ -200,6 +212,25 @@ AptWatchAnalyzer.recordFromVisibleText = function recordFromVisibleText(text) {
   );
   if (planMatch) record.floorPlan = planMatch[1];
 
+  return record;
+};
+
+AptWatchAnalyzer.describeNode = function describeNode(node) {
+  if (!node || node.nodeType !== 1) return null;
+  const tag = node.tagName.toLowerCase();
+  if (node.id) return `${tag}#${node.id}`;
+  const className = typeof node.className === "string" ? node.className.trim() : "";
+  if (className) {
+    const classes = className.split(/\s+/).slice(0, 2).join(".");
+    return `${tag}.${classes}`;
+  }
+  return tag;
+};
+
+AptWatchAnalyzer.stampRecord = function stampRecord(record, node, method) {
+  if (!record || typeof record !== "object") return record;
+  record._method = method || record._method || null;
+  record._selector = AptWatchAnalyzer.describeNode(node) || record._selector || null;
   return record;
 };
 

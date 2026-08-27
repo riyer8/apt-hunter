@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
-import { buildListings, classify } from "../src/analyzer/classify.js";
+import { classify } from "../src/analyzer/classify.js";
+import { buildDiagnosticReport, diagnose } from "../src/analyzer/diagnostics.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -13,6 +14,7 @@ const PAGE_SCRIPTS = [
   "src/analyzer/page/extractors/jsData.js",
   "src/analyzer/page/extractors/html.js",
   "src/analyzer/page/extractors/text.js",
+  "src/analyzer/page/extractors/api.js",
   "src/analyzer/page/run.js",
 ];
 
@@ -30,16 +32,29 @@ export function extractFromHtml(html, { url, apartmentName }) {
   }
 
   const payload = window.AptWatchAnalyzer.run();
-  const listings = buildListings(payload.candidates, {
-    apartmentName: apartmentName || payload.apartmentName || "Test Property",
-    sourceUrl: url,
-    previousListings: [],
-    now: new Date().toISOString(),
-  });
+  const diagnosis = diagnose(
+    payload.candidates,
+    {
+      apartmentName: apartmentName || payload.apartmentName || "Test Property",
+      sourceUrl: url,
+      previousListings: [],
+      now: new Date().toISOString(),
+    },
+    { strategyResults: payload.strategyResults || [] },
+  );
+  const listings = diagnosis.listings;
+  const result = classify(listings);
 
   return {
     payload,
     listings,
-    result: classify(listings),
+    result,
+    diagnosis,
+    report: buildDiagnosticReport({
+      url,
+      apartmentName: apartmentName || payload.apartmentName,
+      diagnosis,
+      classified: result,
+    }),
   };
 }

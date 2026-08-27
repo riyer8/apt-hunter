@@ -8,7 +8,32 @@
   <body>
     <header>
       <h1>AptWatch</h1>
+      <div class="header-actions">
+        <button id="dashboard-button" type="button" class="header-link">Dashboard</button>
+        <button id="test-toggle" type="button" class="header-link" aria-expanded="false">Test</button>
+        <label class="diag-toggle">
+          <input id="diagnostics-toggle" type="checkbox" />
+          Diagnostics
+        </label>
+      </div>
     </header>
+
+    <section id="test-extract" class="test-extract" hidden>
+      <p class="hint">Paste a URL to inspect extraction. Nothing is saved.</p>
+      <div class="test-row">
+        <input
+          id="test-url-input"
+          type="url"
+          placeholder="https://example.com/apartments"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button id="test-extract-button" type="button">Run</button>
+        <button id="clear-test-button" type="button" class="secondary" hidden>Clear</button>
+      </div>
+      <p id="test-error" class="error" hidden></p>
+      <div id="test-report"></div>
+    </section>
 
     <form id="add-form">
       <label for="name-input">Apartment name</label>
@@ -39,6 +64,7 @@
       <h2>Monitored Apartments</h2>
       <p id="empty-state" class="empty">No apartments yet.</p>
       <ul id="apartment-list"></ul>
+      <p class="persist-note">Your buildings, listings, and price history stay in this extension. Clearing cookies or cache does not wipe them.</p>
     </section>
 
     <script type="module" src="popup.js"></script>

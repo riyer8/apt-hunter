@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AptWatch",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "Monitor apartment availability pages.",
   "permissions": ["storage", "scripting", "tabs"],
   "host_permissions": ["http://*/*", "https://*/*"],
@@ -22,5 +22,12 @@
   "background": {
     "service_worker": "src/background/background.js",
     "type": "module"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:5173/*", "http://127.0.0.1:5173/*"],
+      "js": ["src/bridge/pageBridge.js"],
+      "run_at": "document_start"
+    }
+  ]
 }

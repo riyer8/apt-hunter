@@ -80,6 +80,65 @@ const layouts = [
     </body></html>`,
   },
   {
+    name: "Avalon Fusion.globalContent units",
+    url: "https://www.avaloncommunities.com/california/san-francisco-apartments/avalon-dogpatch/",
+    apartmentName: "Avalon Dogpatch",
+    html: `<html><body>
+      <h5>studio From</h5>
+      <a href="#community-unit-listings">$3,955</a>
+      <div class="unit-item">
+        <h2>00B-143 Avalon Dogpatch</h2>
+        <p>Studio • 1 bath • 482 sqft</p>
+        <p>Base rent starting at $3,955 / 13 mo. lease</p>
+        <p>Available starting Oct 02</p>
+        <a href="https://www.avaloncommunities.com/california/san-francisco-apartments/avalon-dogpatch/apartment/CA117-CA117-00B-143/">View Details</a>
+      </div>
+      <script>
+        window.Fusion = window.Fusion || {};
+        Fusion.globalContent = ${JSON.stringify({
+          communityId: "AVB-CA117",
+          name: "Avalon Dogpatch",
+          url: "https://www.avaloncommunities.com/california/san-francisco-apartments/avalon-dogpatch/",
+          units: [
+            {
+              unitId: "AVB-CA117-00B-143",
+              unitName: "143",
+              url: "https://www.avaloncommunities.com/california/san-francisco-apartments/avalon-dogpatch/apartment/CA117-CA117-00B-143",
+              bedroomNumber: 0,
+              bathroomNumber: 1,
+              squareFeet: 482,
+              floorPlan: { name: "S3-482SF" },
+              startingAtPricesUnfurnished: { prices: { price: 3955 } },
+              availableDateUnfurnished: "2026-10-02T04:00:00+00:00",
+            },
+            {
+              unitId: "AVB-CA117-00B-368",
+              unitName: "368",
+              url: "https://www.avaloncommunities.com/california/san-francisco-apartments/avalon-dogpatch/apartment/CA117-CA117-00B-368",
+              bedroomNumber: 0,
+              bathroomNumber: 1,
+              squareFeet: 436,
+              floorPlan: { name: "S2-436SF" },
+              startingAtPricesUnfurnished: { prices: { price: 3980 } },
+              availableDateUnfurnished: "2026-08-28T04:00:00+00:00",
+            },
+            {
+              unitId: "AVB-CA117-00C-175",
+              unitName: "175",
+              url: "https://www.avaloncommunities.com/california/san-francisco-apartments/avalon-dogpatch/apartment/CA117-CA117-00C-175",
+              bedroomNumber: 1,
+              bathroomNumber: 1,
+              squareFeet: 545,
+              floorPlan: { name: "A1-545SF" },
+              startingAtPricesUnfurnished: { prices: { price: 4240 } },
+              availableDateUnfurnished: "2026-09-27T04:00:00+00:00",
+            },
+          ],
+        })};
+      </script>
+    </body></html>`,
+  },
+  {
     name: "Unstructured DOM cards",
     url: "https://www.apartments.com/example",
     apartmentName: "Tracy Ave",

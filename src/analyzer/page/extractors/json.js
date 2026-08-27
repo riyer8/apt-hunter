@@ -1,5 +1,9 @@
-AptWatchAnalyzer.register("json", function extractJson() {
-  return [...extractJsonLd(), ...extractEmbeddedJson()];
+AptWatchAnalyzer.register("jsonLd", function extractJsonLdStrategy() {
+  return extractJsonLd();
+});
+
+AptWatchAnalyzer.register("json", function extractEmbeddedJsonStrategy() {
+  return extractEmbeddedJson();
 });
 
 function extractJsonLd() {
@@ -39,7 +43,9 @@ function collectFromLd(node, records, depth) {
   );
 
   if (interesting && (node.unitNumber || node.sku || node.offers || node.numberOfBedrooms || node.floorSize)) {
-    records.push(flattenLdNode(node));
+    const record = flattenLdNode(node);
+    record._method = "json-ld";
+    records.push(record);
   }
 
   if (node["@graph"]) collectFromLd(node["@graph"], records, (depth || 0) + 1);
@@ -85,12 +91,74 @@ function extractEmbeddedJson() {
 
 function parseJsonBlobs(text) {
   const blobs = [];
-  const assignment = text.match(
-    /(?:window\.)?(?:__NEXT_DATA__|__NUXT__|__INITIAL_STATE__|__PRELOADED_STATE__|__APOLLO_STATE__)\s*=\s*(\{[\s\S]*\})\s*;?/,
-  );
-  if (assignment) pushParsed(assignment[1], blobs);
+  const names = [
+    "__NEXT_DATA__",
+    "__NUXT__",
+    "__INITIAL_STATE__",
+    "__PRELOADED_STATE__",
+    "__APOLLO_STATE__",
+    "Fusion.globalContent",
+    "globalContent",
+  ];
+
+  const seenStarts = new Set();
+  for (const name of names) {
+    const pattern = new RegExp(`(?:window\\.)?${name.replace(".", "\\.")}\\s*=\\s*(\\{)`);
+    const match = text.match(pattern);
+    if (!match) continue;
+    const start = match.index + match[0].length - 1;
+    if (seenStarts.has(start)) continue;
+    seenStarts.add(start);
+    const json = sliceBalanced(text, start);
+    if (json) pushParsed(json, blobs);
+  }
+
   if (/^\s*[{[]/.test(text)) pushParsed(text, blobs);
   return blobs;
+}
+
+function sliceBalanced(text, start) {
+  const open = text[start];
+  const close = open === "{" ? "}" : "]";
+  if (open !== "{" && open !== "[") return null;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  const limit = Math.min(text.length, start + 1_500_000);
+
+  for (let i = start; i < limit; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escape = true;
+        continue;
+      }
+      if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === open) depth += 1;
+    else if (ch === close) {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+function stampEmbedded(item) {
+  if (!item || typeof item !== "object") return item;
+  if (item._method) return item;
+  item._method = "embedded-json";
+  return item;
 }
 
 function pushParsed(value, blobs) {
@@ -115,7 +183,7 @@ function collectUnitRecords(value, records, depth, visited) {
     if (value.length && value.every((item) => !item || typeof item !== "object")) return;
     const unitLike = value.filter((item) => AptWatchAnalyzer.isUnitLike(item));
     if (unitLike.length >= 1 && unitLike.length / Math.min(value.length, 25) >= 0.35) {
-      records.push(...unitLike);
+      records.push(...unitLike.map((item) => stampEmbedded(item)));
       return;
     }
     const limit = Math.min(value.length, 120);
@@ -123,7 +191,7 @@ function collectUnitRecords(value, records, depth, visited) {
     return;
   }
 
-  if (AptWatchAnalyzer.isUnitLike(value)) records.push(value);
+  if (AptWatchAnalyzer.isUnitLike(value)) records.push(stampEmbedded(value));
 
   for (const [key, child] of Object.entries(value)) {
     if (AptWatchAnalyzer.UNIT_ARRAY_KEYS.has(AptWatchAnalyzer.normKey(key)) && Array.isArray(child)) {

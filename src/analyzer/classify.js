@@ -1,10 +1,5 @@
-import {
-  applyPreviousSightings,
-  candidateToListing,
-  dedupeListings,
-  populatedListingFields,
-  sortListings,
-} from "./listings.js";
+import { diagnose } from "./diagnostics.js";
+import { populatedListingFields } from "./listings.js";
 
 export const OUTCOME = {
   SUCCESS: "SUCCESS",
@@ -24,12 +19,7 @@ const FIELD_LABELS = {
 };
 
 export function buildListings(candidates, context) {
-  const listings = [];
-  for (const candidate of candidates || []) {
-    const listing = candidateToListing(candidate, context);
-    if (listing) listings.push(listing);
-  }
-  return sortListings(applyPreviousSightings(dedupeListings(listings), context.previousListings));
+  return diagnose(candidates, context).listings;
 }
 
 export function classify(listings) {

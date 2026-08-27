@@ -34,7 +34,7 @@ function extractRepeatingBlocks() {
     if (nodes.length >= 2 && nodes.length > best.length) best = nodes;
   }
 
-  return best.map(recordFromNode).filter(hasListingShape);
+  return best.map((node) => recordFromNode(node, "repeating-block")).filter(hasListingShape);
 }
 
 function extractLabeledBlocks() {
@@ -46,7 +46,7 @@ function extractLabeledBlocks() {
 
   return matches
     .filter((node) => !matches.some((other) => other !== node && node.contains(other)))
-    .map(recordFromNode)
+    .map((node) => recordFromNode(node, "labeled-block"))
     .filter(hasListingShape);
 }
 
@@ -57,24 +57,27 @@ function extractAvailabilityLinks() {
   for (const node of nodes) {
     const text = `${node.innerText || ""} ${node.getAttribute("aria-label") || ""}`.replace(/\s+/g, " ");
     const href = node.href || node.getAttribute("href") || "";
+    if (!href || href.startsWith("#") || /#community|#listings|#availability/i.test(href)) continue;
     const combined = `${text} ${href}`;
     if (!/availability|available|floor[\s-]?plan|apply now|view unit|unit\s*#?\s*[A-Z0-9]/i.test(combined)) {
       continue;
     }
 
-    const record = AptWatchAnalyzer.recordFromVisibleText(combined);
-    if (href) record.url = href;
-    if ((record.unit || record.floorPlan) && record.price) records.push(record);
+    const record = AptWatchAnalyzer.recordFromVisibleText(`${node.innerText || ""} ${node.getAttribute("aria-label") || ""}`);
+    record.url = href;
+    if ((record.unit || record.floorPlan) && record.price) {
+      records.push(AptWatchAnalyzer.stampRecord(record, node, "availability-link"));
+    }
   }
 
   return records;
 }
 
-function recordFromNode(node) {
+function recordFromNode(node, method) {
   const record = AptWatchAnalyzer.recordFromVisibleText(node.innerText);
-  const link = node.querySelector("a[href]") || (node.tagName === "A" ? node : null);
-  if (link?.href) record.url = link.href;
-  return record;
+  const link = node.querySelector("a[href]:not([href^='#'])") || (node.tagName === "A" && !String(node.getAttribute("href") || "").startsWith("#") ? node : null);
+  if (link?.href && !/#community|#listings/.test(link.href)) record.url = link.href;
+  return AptWatchAnalyzer.stampRecord(record, node, method || "dom");
 }
 
 function hasListingShape(record) {
