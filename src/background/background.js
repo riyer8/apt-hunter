@@ -1,0 +1,245 @@
+import { buildListings, classify } from "../analyzer/classify.js";
+import { nullsToNull } from "../analyzer/listings.js";
+import {
+  getApartment,
+  getExtractedListings,
+  saveExtractedListings,
+  STATUS,
+  updateApartment,
+} from "../lib/storage.js";
+
+const EXTRACTOR_FILES = [
+  "src/analyzer/page/namespace.js",
+  "src/analyzer/page/fields.js",
+  "src/analyzer/page/extractors/json.js",
+  "src/analyzer/page/extractors/jsData.js",
+  "src/analyzer/page/extractors/html.js",
+  "src/analyzer/page/extractors/text.js",
+  "src/analyzer/page/run.js",
+];
+
+const LOAD_TIMEOUT_MS = 25000;
+const RENDER_WAIT_MS = 4000;
+const RETRY_WAIT_MS = 3500;
+
+const analyzing = new Set();
+
+chrome.runtime.onInstalled.addListener(() => {
+  console.log("AptWatch ready");
+});
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== "ANALYZE_APARTMENT") return undefined;
+
+  analyzeApartment(message.id, message.url)
+    .then((result) => sendResponse({ ok: true, result }))
+    .catch((error) => sendResponse({ ok: false, error: error.message }));
+
+  return true;
+});
+
+async function analyzeApartment(id, url) {
+  if (analyzing.has(id)) {
+    return { outcome: "PENDING" };
+  }
+
+  analyzing.add(id);
+  await updateApartment(id, {
+    status: STATUS.ANALYZING,
+    analysis: { outcome: "ANALYZING", headline: "Analyzing…", details: [] },
+  });
+
+  const apartment = await getApartment(id);
+  let tabId;
+  let createdTab = false;
+  try {
+    const tabInfo = await getOrOpenTab(url);
+    tabId = tabInfo.tabId;
+    createdTab = tabInfo.created;
+    await waitForTabLoad(tabId);
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => window.scrollTo(0, document.body.scrollHeight),
+    }).catch(() => {});
+    await sleep(RENDER_WAIT_MS);
+
+    let extracted = await extractCandidatesFromTab(tabId);
+    if (!extracted.candidates.length) {
+      await sleep(RETRY_WAIT_MS);
+      extracted = await extractCandidatesFromTab(tabId);
+    }
+
+    const now = new Date().toISOString();
+    const previousListings = apartment?.listings?.length
+      ? apartment.listings
+      : await getExtractedListings(id);
+    const listings = buildListings(extracted.candidates, {
+      apartmentName: apartment?.name || extracted.apartmentName,
+      sourceUrl: url,
+      previousListings,
+      now,
+    }).map(nullsToNull);
+
+    const classified = classify(listings);
+    const savedListings = classified.listings.slice(0, 150);
+    const analysis = {
+      outcome: classified.outcome,
+      headline: classified.headline,
+      details: classified.details,
+      listingCount: classified.listingCount,
+      fieldsDetected: classified.fieldsDetected,
+      strategies: classified.strategies,
+      analyzedAt: now,
+    };
+
+    await updateApartment(id, {
+      status: statusFromOutcome(analysis.outcome),
+      listings: savedListings,
+      analysis,
+    });
+    await saveExtractedListings(id, savedListings);
+
+    return analysis;
+  } catch (error) {
+    const analysis = {
+      ...classify([]),
+      headline: "✕ Could not reliably detect apartment availability",
+      details: [error.message],
+      analyzedAt: new Date().toISOString(),
+    };
+    await updateApartment(id, {
+      status: STATUS.FAILED,
+      analysis,
+    });
+    return analysis;
+  } finally {
+    analyzing.delete(id);
+    if (createdTab && tabId != null) {
+      chrome.tabs.remove(tabId).catch(() => {});
+    }
+  }
+}
+
+function urlsMatch(left, right) {
+  try {
+    const a = new URL(left);
+    const b = new URL(right);
+    const strip = (value) => `${value.origin}${value.pathname}`.replace(/\/+$/, "").toLowerCase();
+    return strip(a) === strip(b);
+  } catch {
+    return false;
+  }
+}
+
+async function getOrOpenTab(url) {
+  const tabs = await chrome.tabs.query({});
+  const existing = tabs.find((tab) => tab.url && urlsMatch(tab.url, url));
+  if (existing?.id != null) {
+    return { tabId: existing.id, created: false };
+  }
+
+  const tab = await chrome.tabs.create({ url, active: false });
+  return { tabId: tab.id, created: true };
+}
+
+async function extractCandidatesFromTab(tabId) {
+  await chrome.scripting.executeScript({
+    target: { tabId, allFrames: true },
+    world: "MAIN",
+    files: ["src/analyzer/page/pageState.js"],
+  }).catch(() =>
+    chrome.scripting.executeScript({
+      target: { tabId },
+      world: "MAIN",
+      files: ["src/analyzer/page/pageState.js"],
+    }),
+  );
+
+  await chrome.scripting.executeScript({
+    target: { tabId, allFrames: true },
+    files: EXTRACTOR_FILES,
+  }).catch(() =>
+    chrome.scripting.executeScript({
+      target: { tabId },
+      files: EXTRACTOR_FILES,
+    }),
+  );
+
+  const frames = await chrome.scripting
+    .executeScript({
+      target: { tabId, allFrames: true },
+      func: () => {
+        const analyzer = globalThis.AptWatchAnalyzer;
+        return analyzer?.run ? analyzer.run() : { candidates: [], pageUrl: location.href };
+      },
+    })
+    .catch(() =>
+      chrome.scripting.executeScript({
+        target: { tabId },
+        func: () => {
+          const analyzer = globalThis.AptWatchAnalyzer;
+          return analyzer?.run ? analyzer.run() : { candidates: [], pageUrl: location.href };
+        },
+      }),
+    );
+
+  const candidates = [];
+  let pageUrl = "";
+  let apartmentName = "";
+  for (const frame of frames || []) {
+    const payload = frame?.result;
+    if (!payload) continue;
+    pageUrl = payload.pageUrl || pageUrl;
+    apartmentName = payload.apartmentName || apartmentName;
+    if (payload.candidates) candidates.push(...payload.candidates);
+  }
+
+  return { candidates, pageUrl, apartmentName };
+}
+
+function statusFromOutcome(outcome) {
+  if (outcome === "SUCCESS") return STATUS.SUCCESS;
+  if (outcome === "PARTIAL") return STATUS.PARTIAL;
+  return STATUS.FAILED;
+}
+
+function waitForTabLoad(tabId) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      chrome.tabs.onRemoved.removeListener(onRemoved);
+      if (error) reject(error);
+      else resolve();
+    };
+
+    const timer = setTimeout(() => finish(new Error("Timed out loading the apartment page.")), LOAD_TIMEOUT_MS);
+
+    const onUpdated = (id, info) => {
+      if (id === tabId && info.status === "complete") finish();
+    };
+
+    const onRemoved = (id) => {
+      if (id === tabId) finish(new Error("The apartment page tab was closed."));
+    };
+
+    chrome.tabs.onUpdated.addListener(onUpdated);
+    chrome.tabs.onRemoved.addListener(onRemoved);
+
+    chrome.tabs.get(tabId).then((tab) => {
+      if (chrome.runtime.lastError) {
+        finish(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      if (tab.status === "complete") finish();
+    }).catch((error) => finish(error));
+  });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "AptWatch",
+  "version": "0.3.0",
+  "description": "Monitor apartment availability pages.",
+  "permissions": ["storage", "scripting", "tabs"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "action": {
+    "default_title": "AptWatch",
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "src/background/background.js",
+    "type": "module"
+  }
+}

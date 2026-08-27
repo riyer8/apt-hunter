@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>AptWatch</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>AptWatch</h1>
+    </header>
+
+    <form id="add-form">
+      <label for="name-input">Apartment name</label>
+      <input
+        id="name-input"
+        name="name"
+        type="text"
+        placeholder="The Helix"
+        autocomplete="off"
+        spellcheck="true"
+      />
+
+      <label for="url-input">Apartment availability URL</label>
+      <input
+        id="url-input"
+        name="url"
+        type="url"
+        placeholder="https://example.com/apartments"
+        autocomplete="off"
+        spellcheck="false"
+      />
+
+      <button type="submit">Add Apartment</button>
+      <p id="form-error" class="error" hidden></p>
+    </form>
+
+    <section class="monitored">
+      <h2>Monitored Apartments</h2>
+      <p id="empty-state" class="empty">No apartments yet.</p>
+      <ul id="apartment-list"></ul>
+    </section>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
