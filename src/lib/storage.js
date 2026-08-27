@@ -1,3 +1,10 @@
+import {
+  apiCreateApartment,
+  apiDeleteApartment,
+  apiListApartments,
+  apiReportScrape,
+} from "./backend.js";
+
 const STORAGE_KEY = "apartments";
 const LISTINGS_KEY = "extractedListings";
 const TEST_KEY = "lastTestExtraction";
@@ -23,8 +30,7 @@ export async function getApartment(id) {
 }
 
 export async function addApartment({ name, url }) {
-  const apartments = await getApartments();
-  const apartment = {
+  let apartment = {
     id: crypto.randomUUID(),
     name,
     url,
@@ -32,6 +38,25 @@ export async function addApartment({ name, url }) {
     status: STATUS.NOT_ANALYZED,
     listings: [],
   };
+
+  try {
+    const remote = await apiCreateApartment({ name, url });
+    apartment = {
+      ...apartment,
+      id: remote.id,
+      name: remote.name || apartment.name,
+      url: remote.url || apartment.url,
+      location: remote.location || null,
+      dateAdded: remote.dateAdded || apartment.dateAdded,
+      status: remote.status || apartment.status,
+      lastChecked: remote.lastChecked || null,
+      listings: remote.listings || [],
+    };
+  } catch {
+    // Keep the local copy until the backend is reachable.
+  }
+
+  const apartments = await getApartments();
   apartments.push(apartment);
   await chrome.storage.local.set({ [STORAGE_KEY]: apartments });
   return apartment;
@@ -41,6 +66,11 @@ export async function removeApartment(id) {
   const apartments = (await getApartments()).filter((item) => item.id !== id);
   await chrome.storage.local.set({ [STORAGE_KEY]: apartments });
   await removeExtractedListings(id);
+  try {
+    await apiDeleteApartment(id);
+  } catch {
+    // Local delete still stands if the API is down.
+  }
 }
 
 export async function getExtractedListings(apartmentId) {
@@ -170,4 +200,54 @@ export async function saveUiPrefs(patch) {
 
 function normalizeUrl(url) {
   return url.trim().replace(/\/+$/, "").toLowerCase();
+}
+
+export async function replaceApartmentId(oldId, newId) {
+  if (!oldId || !newId || oldId === newId) return newId;
+  const apartments = await getApartments();
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: apartments.map((item) => (item.id === oldId ? { ...item, id: newId } : item)),
+  });
+  const extracted = await getExtractedListings();
+  if (extracted[oldId]) {
+    extracted[newId] = extracted[oldId];
+    delete extracted[oldId];
+    await chrome.storage.local.set({ [LISTINGS_KEY]: extracted });
+  }
+  return newId;
+}
+
+export async function syncFromBackend() {
+  const remote = await apiListApartments();
+  if (!remote) return false;
+
+  const local = await getApartments();
+  const localByUrl = new Map(local.map((item) => [normalizeUrl(item.url), item]));
+  const merged = remote.map((item) => {
+    const existing = localByUrl.get(normalizeUrl(item.url));
+    return {
+      ...existing,
+      ...item,
+      analysis: existing?.analysis || null,
+      listings: item.listings?.length ? item.listings : existing?.listings || [],
+    };
+  });
+  const remoteUrls = new Set(remote.map((item) => normalizeUrl(item.url)));
+  for (const item of local) {
+    if (!remoteUrls.has(normalizeUrl(item.url))) merged.push(item);
+  }
+  await chrome.storage.local.set({ [STORAGE_KEY]: merged });
+  return true;
+}
+
+export async function reportScrapeToBackend(apartment, payload) {
+  try {
+    let id = apartment.id;
+    const remote = await apiCreateApartment({ name: apartment.name, url: apartment.url });
+    if (remote?.id) id = await replaceApartmentId(apartment.id, remote.id);
+    await apiReportScrape(id, payload);
+    return id;
+  } catch {
+    return null;
+  }
 }

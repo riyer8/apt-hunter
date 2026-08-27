@@ -12,6 +12,7 @@ import {
   removeApartment,
   saveUiPrefs,
   setDiagnosticsMode,
+  syncFromBackend,
 } from "../lib/storage.js";
 
 const form = document.getElementById("add-form");
@@ -645,6 +646,7 @@ async function init() {
   diagnosticsMode = await getDiagnosticsMode();
   diagnosticsToggle.checked = diagnosticsMode;
   document.body.classList.toggle("diagnostics-on", diagnosticsMode);
+  await syncFromBackend();
   await renderApartments();
   await renderTestReport();
 }

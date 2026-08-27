@@ -35,8 +35,8 @@ export default function AddApartmentModal({ onClose, onAdd, connected = false })
         <h2 id="add-title">Add apartment</h2>
         <p>
           {connected
-            ? "Paste an availability page. It is saved in the extension — Analyze it from the popup to pull units."
-            : "Paste an availability page. Load the AptWatch extension to save it with your real list."}
+            ? "Paste an availability page. It is saved in the database. Analyze it from the extension popup to pull units."
+            : "Paste an availability page. Start the AptWatch backend or load the extension to save it with your real list."}
         </p>
         <form className="modal-form" onSubmit={submit}>
           <label htmlFor="apt-name">Building name</label>

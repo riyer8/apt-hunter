@@ -5,6 +5,7 @@ import {
   sortListings,
   applyPreviousSightings,
   populatedListingFields,
+  collapsePrefixedUnits,
 } from "./listings.js";
 
 export const STRATEGY_ORDER = ["html", "jsonLd", "json", "api", "text", "jsData"];
@@ -50,7 +51,8 @@ export function diagnose(candidates, context, extras = {}) {
   const duplicatesRemoved = Math.max(0, beforeDedupe - deduped.length);
 
   const preferred = preferUnitIdentities(deduped);
-  const droppedGeneric = deduped.filter((listing) => !preferred.some((item) => item.id === listing.id));
+  const collapsed = collapsePrefixedUnits(preferred);
+  const droppedGeneric = deduped.filter((listing) => !collapsed.some((item) => item.id === listing.id));
   for (const listing of droppedGeneric) {
     rejected.push({
       source: listing.source || "unknown",
@@ -59,7 +61,7 @@ export function diagnose(candidates, context, extras = {}) {
     });
   }
 
-  const listings = sortListings(applyPreviousSightings(preferred, context.previousListings));
+  const listings = sortListings(applyPreviousSightings(collapsed, context.previousListings));
 
   return {
     listings,

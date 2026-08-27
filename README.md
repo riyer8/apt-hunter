@@ -6,4 +6,4 @@ a chrome extension that pulls unit listings off apartment availability pages. ea
 
 chrome://extensions → Developer mode → Load unpacked → this folder
 click AptWatch → add a name and URL → Analyze
-Dashboard in the popup opens the website (http://localhost:5173 while `cd web && npm run dev` is running). The site uses the same extension data.
+Dashboard in the popup opens the website. Backend setup: see `docs/BACKEND.md`.

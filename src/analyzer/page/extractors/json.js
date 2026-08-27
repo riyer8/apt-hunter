@@ -32,40 +32,52 @@ function collectFromLd(node, records, depth) {
   if (typeof node !== "object") return;
 
   const type = [].concat(node["@type"] || []).map((value) => String(value).toLowerCase());
-  if (type.some((value) => /apartmentcomplex|organization|webpage|breadcrumblist|realestateagent/i.test(value))) {
-    if (node["@graph"]) collectFromLd(node["@graph"], records, (depth || 0) + 1);
-    if (node.containsPlace) collectFromLd(node.containsPlace, records, (depth || 0) + 1);
-    return;
-  }
-
-  const interesting = type.some((value) =>
-    /apartment|residence|accommodation|offer|product|floorplan|realestate|rental|lodging/i.test(value),
+  const isShell = type.some((value) =>
+    /apartmentcomplex|organization|webpage|breadcrumblist|realestateagent|aggregateoffer|realestatelisting/i.test(
+      value,
+    ),
+  );
+  const isOffer = type.includes("offer") && !type.includes("aggregateoffer");
+  const isUnitType = type.some((value) =>
+    /(^apartment$|residence|accommodation|floorplan|^lodging)/i.test(value),
   );
 
-  if (interesting && (node.unitNumber || node.sku || node.offers || node.numberOfBedrooms || node.floorSize)) {
-    const record = flattenLdNode(node);
-    record._method = "json-ld";
-    records.push(record);
+  if (!isShell) {
+    if (isUnitType && (node.unitNumber || node.name || node.numberOfBedrooms != null || node.floorSize)) {
+      records.push(flattenLdNode(node));
+    } else if (
+      isOffer &&
+      (node.name || node.unitNumber) &&
+      (node.price != null || node.lowPrice != null || node.availabilityStarts)
+    ) {
+      records.push(flattenLdNode(node));
+    }
   }
 
-  if (node["@graph"]) collectFromLd(node["@graph"], records, (depth || 0) + 1);
-  if (node.offers) collectFromLd(node.offers, records, (depth || 0) + 1);
-  if (node.containsPlace) collectFromLd(node.containsPlace, records, (depth || 0) + 1);
-  if (node.hasOfferCatalog) collectFromLd(node.hasOfferCatalog, records, (depth || 0) + 1);
+  collectFromLd(node["@graph"], records, (depth || 0) + 1);
+  collectFromLd(node.about, records, (depth || 0) + 1);
+  collectFromLd(node.offers, records, (depth || 0) + 1);
+  collectFromLd(node.containsPlace, records, (depth || 0) + 1);
+  collectFromLd(node.hasOfferCatalog, records, (depth || 0) + 1);
+  collectFromLd(node.itemOffered, records, (depth || 0) + 1);
 }
 
 function flattenLdNode(node) {
   const offer = Array.isArray(node.offers) ? node.offers[0] : node.offers;
+  const usableOffer =
+    offer && typeof offer === "object" && !/aggregate/i.test(String(offer["@type"] || "")) ? offer : null;
   const floorSize = node.floorSize;
+  const name = typeof node.name === "string" ? node.name : null;
   return {
-    unit: node.unitNumber || node.identifier || node.sku,
-    floorPlan: typeof node.floorPlan === "string" ? node.floorPlan : node.name,
-    price: offer?.price || offer?.lowPrice || node.price,
-    bedrooms: node.numberOfBedrooms || node.numberOfRooms || node.bedrooms,
-    bathrooms: node.numberOfBathroomsTotal || node.numberOfBathrooms || node.bathrooms,
+    unit: node.unitNumber || node.identifier || node.sku || name,
+    floorPlan: typeof node.floorPlan === "string" ? node.floorPlan : null,
+    price: node.price || node.lowPrice || usableOffer?.price || usableOffer?.lowPrice,
+    bedrooms: node.numberOfBedrooms ?? node.numberOfRooms ?? node.bedrooms,
+    bathrooms: node.numberOfBathroomsTotal ?? node.numberOfBathrooms ?? node.bathrooms,
     sqft: typeof floorSize === "object" ? floorSize?.value : floorSize || node.squareFootage,
-    availableDate: offer?.availabilityStarts || node.availabilityStarts || node.temporalCoverage,
-    url: offer?.url || node.url,
+    availableDate: node.availabilityStarts || usableOffer?.availabilityStarts || node.temporalCoverage,
+    url: usableOffer?.url || node.url || null,
+    _method: "json-ld",
   };
 }
 

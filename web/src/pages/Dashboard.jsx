@@ -66,9 +66,11 @@ export default function Dashboard() {
     >
       <h1 className="page-title">Your buildings, at a glance.</h1>
       <p className="lede">
-        {source === "extension"
-          ? "This dashboard reads the same saved list as the Chrome extension. Analyze a page in the popup to refresh units here."
-          : "Showing sample data. Load the AptWatch extension and open this page to see your apartments."}
+        {source === "api"
+          ? "This dashboard reads apartments from the AptWatch database. Analyze a page in the extension to refresh units."
+          : source === "extension"
+            ? "This dashboard reads the same saved list as the Chrome extension. Analyze a page in the popup to refresh units here."
+            : "Showing sample data. Start the backend or load the AptWatch extension to see real apartments."}
       </p>
 
       <section className="stats">
@@ -138,7 +140,7 @@ export default function Dashboard() {
         {filteredListings.length === 0 ? (
           <div className="empty">
             {allListings.length === 0
-              ? source === "extension"
+              ? source === "api" || source === "extension"
                 ? "No units yet. Open the extension, then Analyze an availability page."
                 : "No units yet."
               : "No units match those filters."}
@@ -156,7 +158,7 @@ export default function Dashboard() {
 
       {adding ? (
         <AddApartmentModal
-          connected={source === "extension"}
+          connected={source === "api" || source === "extension"}
           onClose={() => setAdding(false)}
           onAdd={addApartment}
         />

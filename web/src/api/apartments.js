@@ -4,11 +4,13 @@ import { MOCK_APARTMENTS } from "../data/mockApartments.js";
 const STORAGE_KEY = "aptwatch.web.apartments";
 const SOURCE_EXT = "aptwatch-extension";
 const SOURCE_WEB = "aptwatch-web";
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8787";
 
 let bridgeState = null;
 let bridgeConnected = false;
 let bridgeGaveUp = false;
 let pendingError = null;
+let apiState = { ok: null, checkedAt: 0 };
 
 function hasChromeStorage() {
   try {
@@ -19,8 +21,38 @@ function hasChromeStorage() {
 }
 
 export function getDataSource() {
+  if (apiState.ok) return "api";
   if (hasChromeStorage() || bridgeConnected) return "extension";
   return "local";
+}
+
+async function apiReady() {
+  if (apiState.ok === true) return true;
+  if (apiState.ok === false && Date.now() - apiState.checkedAt < 4000) return false;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 400);
+    const response = await fetch(`${API_BASE}/health`, { signal: controller.signal });
+    clearTimeout(timeout);
+    apiState = { ok: response.ok, checkedAt: Date.now() };
+  } catch {
+    apiState = { ok: false, checkedAt: Date.now() };
+  }
+  return apiState.ok;
+}
+
+async function apiRequest(path, { method = "GET", body } = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (response.status === 204) return null;
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || `API request failed (${response.status})`);
+  }
+  return data;
 }
 
 function clone(value) {
@@ -139,6 +171,9 @@ function makeApartment(name, url) {
 }
 
 export async function listApartments() {
+  if (await apiReady()) {
+    return apiRequest("/apartments");
+  }
   if (hasChromeStorage()) {
     const data = await chrome.storage.local.get(["apartments", "listingLedger"]);
     return toDashboardApartments(data.apartments || [], data.listingLedger || {});
@@ -155,6 +190,9 @@ export async function getApartment(id) {
 }
 
 export async function addApartment({ name, url }) {
+  if (await apiReady()) {
+    return apiRequest("/apartments", { method: "POST", body: { name, url } });
+  }
   if (hasChromeStorage()) {
     const data = await chrome.storage.local.get("apartments");
     const apartments = data.apartments || [];
@@ -190,6 +228,10 @@ export async function addApartment({ name, url }) {
 }
 
 export async function removeApartment(id) {
+  if (await apiReady()) {
+    await apiRequest(`/apartments/${id}`, { method: "DELETE" });
+    return true;
+  }
   if (hasChromeStorage()) {
     const data = await chrome.storage.local.get(["apartments", "extractedListings"]);
     const apartments = (data.apartments || []).filter((item) => item.id !== id);
@@ -210,7 +252,7 @@ export async function removeApartment(id) {
 }
 
 export async function resetMockData() {
-  if (getDataSource() === "extension") return listApartments();
+  if (getDataSource() !== "local") return listApartments();
   writeLocal(clone(MOCK_APARTMENTS));
   return clone(readLocal());
 }

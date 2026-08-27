@@ -1,6 +1,7 @@
 import {
   emptyToNull,
   extractFactsFromText,
+  looksLikeDate,
   parseApartmentName,
   parseBathrooms,
   parseBedrooms,
@@ -424,6 +425,28 @@ export function preferUnitIdentities(listings) {
   });
 }
 
+export function collapsePrefixedUnits(listings) {
+  const withUnits = listings.filter((listing) => listing.unit);
+  const drop = new Set();
+  const merged = new Map(listings.map((listing) => [listing.id, listing]));
+
+  for (const longer of withUnits) {
+    const shorter = withUnits.find((candidate) => {
+      if (candidate === longer || !candidate.unit) return false;
+      if (longer.unit.length <= candidate.unit.length) return false;
+      if (!longer.unit.startsWith(candidate.unit)) return false;
+      const remainder = longer.unit.slice(candidate.unit.length);
+      return /^[A-Z][A-Z0-9]{0,3}$/i.test(remainder);
+    });
+    if (!shorter) continue;
+    drop.add(longer.id);
+    const current = merged.get(shorter.id) || shorter;
+    merged.set(shorter.id, mergeListings(current, longer));
+  }
+
+  return listings.map((listing) => merged.get(listing.id) || listing).filter((listing) => !drop.has(listing.id));
+}
+
 export function sortListings(listings) {
   return [...listings].sort((left, right) => {
     const leftLabel = String(left.unit || left.floorPlan || "");
@@ -462,6 +485,9 @@ function isJunkListing(listing) {
   if (/^\[object /i.test(String(listing.unit || "")) || /^\[object /i.test(String(listing.floorPlan || ""))) {
     return true;
   }
+  if (looksLikeDate(listing.unit) || looksLikeDate(listing.floorPlan)) {
+    return true;
+  }
   if (/listings?/i.test(String(listing.unit || "")) && !/\d/.test(String(listing.unit || ""))) {
     return true;
   }
@@ -477,6 +503,16 @@ function isJunkListing(listing) {
     listing.floorPlan || "",
   );
   if (!listing.unit && genericPlan && listing.sqft == null && listing.availableDate == null) {
+    return true;
+  }
+  if (
+    !listing.unit &&
+    listing.bedrooms == null &&
+    listing.bathrooms == null &&
+    listing.sqft == null &&
+    listing.price != null &&
+    listing.availableDate
+  ) {
     return true;
   }
   return false;

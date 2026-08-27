@@ -1,3 +1,7 @@
 node_modules/
 web/dist
 web/node_modules
+server/node_modules
+.env
+.env.local
+server/.env

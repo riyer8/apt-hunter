@@ -9,7 +9,11 @@ export default function Shell({ children, action, source }) {
           <span>
             <span className="brand-name">AptWatch</span>
             <span className="brand-kicker">
-              {source === "extension" ? "Synced with the extension" : "Watch for the right unit"}
+              {source === "api"
+                ? "Synced with the backend"
+                : source === "extension"
+                  ? "Synced with the extension"
+                  : "Watch for the right unit"}
             </span>
           </span>
         </Link>

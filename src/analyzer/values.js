@@ -151,7 +151,7 @@ export function parseDate(value) {
     const month = Number(mdOnly[1]);
     const day = Number(mdOnly[2]);
     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return `${String(month).padStart(2, "0")}/${String(day).padStart(2, "0")}`;
+      return isoWithInferredYear(month, day);
     }
   }
 
@@ -178,10 +178,7 @@ export function parseDate(value) {
     const month = MONTHS[named[1].toLowerCase()];
     const day = Number(named[2]);
     if (!month || day < 1 || day > 31) return null;
-    if (!named[3]) {
-      const label = named[1].slice(0, 1).toUpperCase() + named[1].slice(1, 3).toLowerCase();
-      return `${label} ${day}`;
-    }
+    if (!named[3]) return isoWithInferredYear(month, day);
     const year = Number(named[3]);
     if (year < 2000 || year > 2100) return null;
     return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -198,6 +195,7 @@ export function parseUnit(value) {
   }
   const text = String(value).trim();
   if (!text || /^\[object /i.test(text)) return null;
+  if (looksLikeDate(text)) return null;
   if (/^(unit|apt|apartment|rent|price|availability|floor plan|studio|listings?)$/i.test(text)) {
     return null;
   }
@@ -241,6 +239,8 @@ export function parseFloorPlan(value) {
   }
   const text = String(value).replace(/\s+/g, " ").trim();
   if (!text || /^\[object /i.test(text)) return null;
+  if (looksLikeDate(text)) return null;
+  if (/^apt\.?\s*[A-Z0-9]/i.test(text)) return null;
   if (/^(floor\s*plan|plan|layout|model|listings?)$/i.test(text)) return null;
   if (/^https?:|^#/i.test(text)) return null;
   if (/apartments?|community|residences|available|listings?/i.test(text) && text.length > 40) {
@@ -292,6 +292,24 @@ export function parseApartmentName(value) {
 function toIsoDate(date) {
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString().slice(0, 10);
+}
+
+export function looksLikeDate(value) {
+  if (value == null) return false;
+  const text = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return true;
+  if (/^\d{1,2}\/\d{1,2}(?:\/\d{2,4})?$/.test(text)) return true;
+  return /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s+\d{4})?$/i.test(
+    text,
+  );
+}
+
+function isoWithInferredYear(month, day) {
+  const now = new Date();
+  let year = now.getFullYear();
+  const candidate = new Date(year, month - 1, day);
+  if (candidate.getTime() < now.getTime() - 7 * 24 * 60 * 60 * 1000) year += 1;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 export function extractFactsFromText(text) {

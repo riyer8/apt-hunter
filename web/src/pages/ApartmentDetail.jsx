@@ -79,7 +79,7 @@ export default function ApartmentDetail() {
           {listings.length === 0 ? (
             <div className="empty">
               {apartment.listings.length === 0
-                ? source === "extension"
+                ? source === "api" || source === "extension"
                   ? "No units yet. Analyze this page in the AptWatch popup."
                   : "No units yet."
                 : "No units match those filters."}

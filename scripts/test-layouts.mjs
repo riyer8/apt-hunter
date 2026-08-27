@@ -149,6 +149,62 @@ const layouts = [
       </ul>
     </body></html>`,
   },
+  {
+    name: "SightMap JSON-LD apartments plus offers",
+    url: "https://www.quincysf.com/floor-plans-and-availability/",
+    apartmentName: "Quincy",
+    html: `<html><body>
+      <script type="application/ld+json">
+        ${JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": ["RealEstateListing", "Product"],
+          name: "Quincy",
+          about: {
+            "@type": "ApartmentComplex",
+            name: "Quincy",
+            containsPlace: [
+              {
+                "@type": "Apartment",
+                name: "APT 0306",
+                numberOfBedrooms: 0,
+                numberOfBathroomsTotal: 1,
+                floorSize: { "@type": "QuantitativeValue", value: 577, unitCode: "FTK" },
+              },
+              {
+                "@type": "Apartment",
+                name: "APT 1121",
+                numberOfBedrooms: 1,
+                numberOfBathroomsTotal: 1,
+                floorSize: { "@type": "QuantitativeValue", value: 582, unitCode: "FTK" },
+              },
+            ],
+          },
+          offers: {
+            "@type": "AggregateOffer",
+            priceCurrency: "USD",
+            lowPrice: 4186,
+            highPrice: 5163,
+            offerCount: 2,
+            offers: [
+              {
+                "@type": "Offer",
+                name: "APT 1121",
+                availabilityStarts: "2026-10-19",
+                price: 5163,
+              },
+              {
+                "@type": "Offer",
+                name: "APT 0306",
+                availabilityStarts: "2026-10-14",
+                price: 4186,
+              },
+            ],
+          },
+        })}
+      </script>
+      <div>APT 0306S7 Studio / 1 Bath / 577 sq. ft. Available Oct 14th $4,186 - $4,196 /mo* $4,161 Base Rent</div>
+    </body></html>`,
+  },
 ];
 
 function summarize(layout, extracted) {

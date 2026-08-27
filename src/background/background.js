@@ -10,6 +10,7 @@ import {
   STATUS,
   updateApartment,
   updateListingLedger,
+  reportScrapeToBackend,
 } from "../lib/storage.js";
 
 const EXTRACTOR_FILES = [
@@ -94,6 +95,12 @@ async function analyzeApartment(id, url) {
       analysis,
     });
     await saveExtractedListings(id, listingsWithHistory);
+    await reportScrapeToBackend(apartment, {
+      outcome: analysis.outcome,
+      listings: listingsWithHistory,
+      extractionMethod: extracted.report?.extractionMethod || null,
+      startedAt: extracted.report?.analyzedAt || analysis.analyzedAt,
+    });
     return analysis;
   } catch (error) {
     const analysis = {
@@ -106,6 +113,13 @@ async function analyzeApartment(id, url) {
       status: STATUS.FAILED,
       analysis,
     });
+    if (apartment) {
+      await reportScrapeToBackend(apartment, {
+        outcome: "FAILED",
+        listings: [],
+        errorMessage: error.message,
+      });
+    }
     return analysis;
   } finally {
     analyzing.delete(id);
