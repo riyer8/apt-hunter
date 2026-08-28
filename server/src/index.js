@@ -1,7 +1,15 @@
 import cors from "cors";
 import express from "express";
 import { migrate } from "./db.js";
-import { apartmentsRouter, listChangesHandler, notificationsRouter, preferencesRouter, schedulerStatusHandler } from "./routes.js";
+import {
+  apartmentsRouter,
+  listChangesHandler,
+  listingsRouter,
+  notificationsRouter,
+  preferencesRouter,
+  schedulerStatusHandler,
+  wakeHandler,
+} from "./routes.js";
 import { startScheduler } from "./scheduler.js";
 import { backfillMissingBuildingProfiles } from "./buildingAnalyze.js";
 
@@ -11,15 +19,15 @@ const port = Number(process.env.PORT) || 8787;
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: "2mb" }));
 
-app.get("/health", (_req, res) => {
-  schedulerStatusHandler(_req, res);
-});
+app.get("/health", schedulerStatusHandler);
+app.post("/wake", wakeHandler);
 
 app.get("/changes", listChangesHandler);
 app.use("/notifications", notificationsRouter);
 app.use("/preferences", preferencesRouter);
 
 app.use("/apartments", apartmentsRouter);
+app.use("/listings", listingsRouter);
 
 app.use((error, _req, res, _next) => {
   const status = error.status || 500;

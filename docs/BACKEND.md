@@ -18,8 +18,6 @@ The extension keeps `chrome.storage.local` as a fallback until the API is reacha
 
 ## Database setup
 
-## Database setup
-
 1. Start Postgres.
 
 Docker (optional):
@@ -64,23 +62,25 @@ The frontend and extension never receive database credentials.
 
 ## Run the backend
 
+From the repo root (Docker Postgres when available, API, and dashboard):
+
+```bash
+npm install --prefix server
+npm install --prefix web
+npm run dev
+```
+
+Or run the API alone:
+
 ```bash
 cd server
 npm install
 cp .env.example .env   # first time only
-npm run seed           # first time, or to load demo data
-npm run reset          # wipe all buildings, listings, notifications, and preference searches
+npm run reset          # optional: wipe all buildings, listings, notifications, and preference searches
 npm run dev
 ```
 
 Health check: http://127.0.0.1:8787/health
-
-## Seed development data
-
-`npm run seed` in `server/` loads two buildings:
-
-- **The George** — several units, including NEW listings (`1204`, `1412`), a price drop (`908`), an availability change on Avalon, and one removed unit (`707`)
-- **Avalon Dogpatch** — three units, including a price drop (`00C-175`)
 
 ## Run the website
 
@@ -90,7 +90,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173/. With the API running, the dashboard should say it is synced with the backend and show the seed apartments.
+Open http://localhost:5173/.
 
 ## Run the extension
 
@@ -108,7 +108,8 @@ All JSON uses the existing dashboard listing/apartment shape (`id`, `url`, `stat
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| `GET` | `/health` | `{ ok: true, scheduler }` |
+| `GET` | `/health` | `{ ok: true, scheduler, openai }` |
+| `POST` | `/wake` | Re-run building-profile backfill and return `{ ok, scheduler, openai }`. Called automatically when the dashboard opens. |
 | `POST` | `/apartments` | `{ name, url }`. Same canonical URL returns the existing row instead of inserting a duplicate. |
 | `GET` | `/apartments` | All buildings with **active** listings |
 | `GET` | `/apartments/:id` | One building |
@@ -117,6 +118,8 @@ All JSON uses the existing dashboard listing/apartment shape (`id`, `url`, `stat
 | `POST` | `/apartments/:id/scrape` | Body: `{ outcome: "SUCCESS"\|"PARTIAL"\|"FAILED", listings, extractionMethod, errorMessage }`. Failed outcomes do not change stored listings. |
 | `POST` | `/apartments/:id/scrape-now` | Run the server scraper now. Does not change `next_scrape_at`. 409 if a scrape is already running. |
 | `POST` | `/apartments/:id/monitor` | `{ state: "active" \| "paused" }` |
+| `POST` | `/apartments/:id/selection` | `{ favorite?, watchlisted?, discarded? }` booleans — curate buildings without deleting |
+| `POST` | `/listings/:id/selection` | Same flags for an individual unit |
 | `GET` | `/apartments/:id/scrape-history` | Recent scrape attempts |
 | `GET` | `/changes` | Change events. Query: `apartmentId`, `type` (`NEW` \| `PRICE_DROP` \| `PRICE_INCREASE` \| `AVAILABILITY_CHANGED` \| `REMOVED`), `limit` |
 | `GET` | `/apartments/:id/changes` | Change events for one building |
@@ -189,3 +192,11 @@ Failed scrapes write `scrape_runs` and update apartment status only.
 cd server
 npm test
 ```
+
+With the API running:
+
+```bash
+npm run smoke
+```
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for more detail.

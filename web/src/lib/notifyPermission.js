@@ -1,4 +1,4 @@
-const DISABLED_NOTICE = "Browser notifications are disabled. Enable notifications to receive alerts.";
+const DISABLED_NOTICE = "Notifications disabled.";
 
 export function browserPermissionDecision(permission, { asked = false } = {}) {
   if (permission === "granted") {

@@ -453,9 +453,153 @@ h2,
 
 .apt-card-footer {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 12px;
+}
+
+.apt-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.danger-text {
+  color: var(--bad);
+}
+
+.listing-selection-cell {
+  min-width: 280px;
+}
+
+.listing-selection-cell .selection-actions {
+  flex-wrap: wrap;
+}
+
+.selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.selection-actions.compact .selection-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.selection-btn {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  padding: 8px 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.selection-btn:hover:not(:disabled) {
+  border-color: var(--forest);
+  color: var(--forest);
+}
+
+.selection-btn.active {
+  border-color: var(--forest);
+  color: var(--forest);
+  background: #e8f2ef;
+}
+
+.selection-btn.active.favorite {
+  color: #b5761a;
+  border-color: #d4a24a;
+  background: #faf3e6;
+}
+
+.selection-btn.active.watchlist {
+  color: #1f6f9f;
+  border-color: #7ec0e8;
+  background: #e8f4fc;
+}
+
+.selection-btn.active.discarded {
+  color: var(--bad);
+  border-color: #d9a8a3;
+  background: #fceeed;
+}
+
+.selection-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.selection-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.selection-badge {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f3eee4;
+  color: var(--muted);
+}
+
+.selection-badge.favorite {
+  background: #faf3e6;
+  color: #9a6418;
+}
+
+.selection-badge.watchlist {
+  background: #e8f2ef;
+  color: var(--forest);
+}
+
+.selection-badge.discarded {
+  background: #fceeed;
+  color: var(--bad);
+}
+
+.listing-unit-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.listing-curate-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.listing-curate-mark.favorite {
+  color: #b5761a;
+  background: #faf3e6;
+}
+
+.listing-curate-mark.watchlist {
+  color: #1f6f9f;
+  background: #e8f4fc;
+}
+
+.listings-table tbody tr.listing-row-favorite {
+  background: #fffaf0;
+}
+
+.listings-table tbody tr.listing-row-watchlist {
+  background: #f5fbff;
 }
 
 .status {

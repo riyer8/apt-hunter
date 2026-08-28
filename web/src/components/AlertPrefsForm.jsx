@@ -49,8 +49,7 @@ export default function AlertPrefsForm({ apartmentId, initial }) {
   return (
     <form className="alert-prefs" onSubmit={onSubmit}>
       <div className="section-head">
-        <h2>Alert preferences</h2>
-        <p>Chrome notifications for this building</p>
+        <h2>Alerts</h2>
       </div>
       <div className="toggles">
         <label className="toggle">

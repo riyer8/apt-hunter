@@ -474,6 +474,62 @@ export async function setMonitorState(id, state) {
   return result.rows[0] || null;
 }
 
+export async function getListingRow(id) {
+  const result = await query("SELECT * FROM listings WHERE id = $1", [id]);
+  return result.rows[0] || null;
+}
+
+export async function setApartmentSelection(id, patch) {
+  const sets = [];
+  const values = [id];
+  if (patch.favorite !== undefined) {
+    values.push(patch.favorite);
+    sets.push(`is_favorite = $${values.length}`);
+  }
+  if (patch.watchlisted !== undefined) {
+    values.push(patch.watchlisted);
+    sets.push(`is_watchlisted = $${values.length}`);
+  }
+  if (patch.discarded !== undefined) {
+    values.push(patch.discarded);
+    sets.push(`is_discarded = $${values.length}`);
+  }
+  if (!sets.length) {
+    const error = new Error("No selection fields to update.");
+    error.status = 400;
+    throw error;
+  }
+  const result = await query(
+    `UPDATE apartments SET ${sets.join(", ")}, updated_at = now() WHERE id = $1 RETURNING *`,
+    values,
+  );
+  return result.rows[0] || null;
+}
+
+export async function setListingSelection(id, patch) {
+  const sets = [];
+  const values = [id];
+  if (patch.favorite !== undefined) {
+    values.push(patch.favorite);
+    sets.push(`is_favorite = $${values.length}`);
+  }
+  if (patch.watchlisted !== undefined) {
+    values.push(patch.watchlisted);
+    sets.push(`is_watchlisted = $${values.length}`);
+  }
+  if (patch.discarded !== undefined) {
+    values.push(patch.discarded);
+    sets.push(`is_discarded = $${values.length}`);
+  }
+  if (!sets.length) {
+    const error = new Error("No selection fields to update.");
+    error.status = 400;
+    throw error;
+  }
+  const result = await query(`UPDATE listings SET ${sets.join(", ")} WHERE id = $1 RETURNING *`, values);
+  return result.rows[0] || null;
+}
+
 export async function claimScrapeLock(id, _at, staleMs = 6 * 60 * 1000) {
   const result = await query(
     `UPDATE apartments
@@ -488,6 +544,14 @@ export async function claimScrapeLock(id, _at, staleMs = 6 * 60 * 1000) {
 
 export async function releaseScrapeLock(id) {
   await query("UPDATE apartments SET scrape_lock_at = NULL, updated_at = now() WHERE id = $1", [id]);
+}
+
+export async function setMonitoringStatus(id, status) {
+  const result = await query(
+    `UPDATE apartments SET monitoring_status = $2, updated_at = now() WHERE id = $1 RETURNING *`,
+    [id, status],
+  );
+  return result.rows[0] || null;
 }
 
 export async function updateSchedule(id, patch) {

@@ -11,6 +11,7 @@ import {
   updateApartment,
   updateListingLedger,
   reportScrapeToBackend,
+  syncFromBackend,
 } from "../lib/storage.js";
 import { startAlertPolling } from "./alerts.js";
 
@@ -25,9 +26,9 @@ const EXTRACTOR_FILES = [
   "src/analyzer/page/run.js",
 ];
 
-const LOAD_TIMEOUT_MS = 25000;
-const RENDER_WAIT_MS = 4000;
-const RETRY_WAIT_MS = 3500;
+const LOAD_TIMEOUT_MS = 45000;
+const RENDER_WAIT_MS = 6000;
+const RETRY_WAIT_MS = 4000;
 const TEST_LOCK = "__test_extraction__";
 
 const analyzing = new Set();
@@ -54,6 +55,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "TEST_EXTRACTION") {
     testExtraction(message.url)
       .then((result) => sendResponse({ ok: true, result }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message?.type === "SYNC_FROM_BACKEND") {
+    syncFromBackend()
+      .then((synced) => sendResponse({ ok: true, synced: Boolean(synced) }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }

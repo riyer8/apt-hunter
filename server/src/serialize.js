@@ -54,6 +54,9 @@ export function toApiApartment(row, listings = [], extras = {}) {
     alertPreferences: extras.alertPreferences || null,
     features: extras.features || {},
     buildingProfile: extras.buildingProfile || null,
+    isFavorite: row.is_favorite === true,
+    isWatchlisted: row.is_watchlisted === true,
+    isDiscarded: row.is_discarded === true,
   };
 }
 
@@ -82,6 +85,9 @@ export function toApiListing(row, apartmentName, previousPrice = null, extras = 
     location: extras.location || null,
     match: extras.match || null,
     buildingProfile: extras.buildingProfile || null,
+    isFavorite: row.is_favorite === true,
+    isWatchlisted: row.is_watchlisted === true,
+    isDiscarded: row.is_discarded === true,
   };
 }
 

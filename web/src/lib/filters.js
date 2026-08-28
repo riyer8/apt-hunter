@@ -1,4 +1,5 @@
 import { listingMatchesFilters, listingSearchText } from "@shared/listingView.js";
+import { apartmentPassesSelection } from "@shared/selection.js";
 
 export const EMPTY_FILTERS = {
   query: "",
@@ -12,6 +13,8 @@ export const EMPTY_FILTERS = {
   minWalkability: "",
   newOnly: false,
   priceDropsOnly: false,
+  selectionScope: "",
+  showDiscarded: false,
   sort: "unit",
   sortDir: "",
 };
@@ -36,7 +39,13 @@ export function matchingListings(apartment, filters) {
   return (apartment.listings || []).filter((listing) => listingMatchesFilters(listing, listingFilters));
 }
 
+export function apartmentIncludedInListings(apartment, filters) {
+  return apartmentPassesSelection(apartment, filters);
+}
+
 export function apartmentVisible(apartment, filters) {
+  if (!apartmentPassesSelection(apartment, filters)) return false;
+
   const listings = matchingListings(apartment, filters);
   const query = filters.query.trim().toLowerCase();
 

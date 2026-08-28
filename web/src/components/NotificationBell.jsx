@@ -66,7 +66,7 @@ export default function NotificationBell({ source }) {
     if (typeof Notification === "undefined") {
       localStorage.setItem(ASKED_KEY, "1");
       setShowPrompt(false);
-      setNotice("Browser notifications are disabled. Enable notifications to receive alerts.");
+      setNotice("Notifications disabled.");
       return;
     }
     const result = await Notification.requestPermission();
@@ -96,12 +96,12 @@ export default function NotificationBell({ source }) {
           </div>
           {showPrompt ? (
             <button type="button" className="btn btn-ghost btn-small" onClick={enableNotifications}>
-              Enable browser notifications
+              Enable notifications
             </button>
           ) : null}
           {notice ? <p className="notify-notice">{notice}</p> : null}
           {items.length === 0 ? (
-            <p className="notify-empty">No notifications yet.</p>
+            <p className="notify-empty">None</p>
           ) : (
             <ul>
               {items.slice(0, 12).map((item) => (

@@ -124,9 +124,16 @@
   const existing = document.getElementById("aptwatch-page-state");
   if (existing) existing.remove();
 
-  const node = document.createElement("script");
+  // Use <template>, not <script>: Trusted Types (e.g. Google) block
+  // untrusted strings on script.textContent / script.innerHTML.
+  const payload = safeJson(unique).slice(0, 1_500_000);
+  const node = document.createElement("template");
   node.id = "aptwatch-page-state";
-  node.type = "application/json";
-  node.textContent = safeJson(unique).slice(0, 1_500_000);
-  document.documentElement.appendChild(node);
+  node.setAttribute("data-aptwatch", "page-state");
+  try {
+    node.textContent = payload;
+    document.documentElement.appendChild(node);
+  } catch {
+    /* ignore pages that block even non-script sinks */
+  }
 })();

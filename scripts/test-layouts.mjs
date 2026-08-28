@@ -205,6 +205,19 @@ const layouts = [
       <div>APT 0306S7 Studio / 1 Bath / 577 sq. ft. Available Oct 14th $4,186 - $4,196 /mo* $4,161 Base Rent</div>
     </body></html>`,
   },
+  {
+    name: "Windsor Spaces unit cards",
+    url: "https://www.windsorcommunities.com/properties/windsor-at-dogpatch/floorplans/",
+    apartmentName: "Windsor at Dogpatch",
+    html: `<html><body>
+      <article class="spaces-unit" data-spaces-unit="520" data-spaces-sort-price="4837" data-spaces-sort-plan-name="A3" data-spaces-sort-bed="1" data-spaces-sort-bath="1" data-spaces-sort-area="643" data-spaces-soonest="2026-09-01" data-spaces-href="?spaces_tab=unit-detail&detail=5360253" aria-label="Unit 520">
+        520 $4,840.65 /mo 13 Mo. Avail. Sep 01 1 Bed 1 Bath 643 Sq. Ft. A3 Windsor at Dogpatch
+      </article>
+      <article class="spaces-unit" data-spaces-unit="203" data-spaces-sort-price="4071" data-spaces-sort-plan-name="S1" data-spaces-sort-bed="0" data-spaces-sort-bath="1" data-spaces-sort-area="473" data-spaces-soonest="2026-09-16" data-spaces-href="?spaces_tab=unit-detail&detail=5360210" aria-label="Unit 203">
+        203 $4,074.65 /mo 15 Mo. Avail. Sep 16 Studio 1 Bath 473 Sq. Ft. S1 Windsor at Dogpatch
+      </article>
+    </body></html>`,
+  },
 ];
 
 function summarize(layout, extracted) {

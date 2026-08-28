@@ -170,7 +170,6 @@ export default function PreferencesForm({ value, onChange }) {
       <section className="prefs-section">
         <div className="section-head">
           <h2>Amenities</h2>
-          <p>Required features fail a listing if they are known NO. UNKNOWN is never treated as no.</p>
         </div>
         <div className="amenity-grid">
           <div>

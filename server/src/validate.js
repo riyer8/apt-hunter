@@ -60,6 +60,25 @@ export function parseMonitorState(body) {
   return state;
 }
 
+export function parseSelectionPatch(body) {
+  const patch = {};
+  if (body?.favorite != null || body?.isFavorite != null) {
+    patch.favorite = Boolean(body.favorite ?? body.isFavorite);
+  }
+  if (body?.watchlisted != null || body?.isWatchlisted != null) {
+    patch.watchlisted = Boolean(body.watchlisted ?? body.isWatchlisted);
+  }
+  if (body?.discarded != null || body?.isDiscarded != null) {
+    patch.discarded = Boolean(body.discarded ?? body.isDiscarded);
+  }
+  if (!Object.keys(patch).length) {
+    const error = new Error("Send favorite, watchlisted, and/or discarded as booleans.");
+    error.status = 400;
+    throw error;
+  }
+  return patch;
+}
+
 export function parseScrapeInput(body) {
   const outcome = String(body?.outcome || body?.status || "").toUpperCase();
   const allowed = new Set(["SUCCESS", "PARTIAL", "FAILED"]);

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { listingMatchesFilters, sortListings } from "@shared/listingView.js";
+import { listingMatchesFilters, sortListingsWithCuratedPriority } from "@shared/listingView.js";
 import { useApartments } from "../state/ApartmentContext.jsx";
 import { cycleSort, usePersistentFilters } from "../hooks/usePersistentFilters.js";
 import { apartmentChangeSummary } from "../lib/changes.js";
@@ -12,26 +12,27 @@ import FilterBar from "../components/FilterBar.jsx";
 import ListingsTable from "../components/ListingsTable.jsx";
 import AlertPrefsForm from "../components/AlertPrefsForm.jsx";
 import BuildingProfilePanel from "../components/BuildingProfilePanel.jsx";
+import ApartmentSelectionActions, { SelectionBadges } from "../components/ApartmentSelectionActions.jsx";
 
 export default function ApartmentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { apartments, loading, source, removeApartment, setMonitorState, scrapeNow, reanalyzeBuilding } = useApartments();
+  const { apartments, loading, source, removeApartment, setMonitorState, scrapeNow, reanalyzeBuilding, setApartmentSelection, setListingSelection, analyzeApartment } =
+    useApartments();
   const [filters, setFilters] = usePersistentFilters();
   const [history, setHistory] = useState([]);
   const [busy, setBusy] = useState("");
+  const [listingSelectionBusy, setListingSelectionBusy] = useState("");
   const [error, setError] = useState("");
+  const canManage = source === "api" || source === "extension";
   const apartment = apartments.find((item) => item.id === id);
   const monitor = apartment ? monitorMeta(apartment) : null;
   const summary = apartment ? apartmentChangeSummary(apartment) : null;
 
   const listings = useMemo(() => {
     if (!apartment) return [];
-    return sortListings(
-      (apartment.listings || []).filter((listing) => listingMatchesFilters(listing, filters)),
-      filters.sort,
-      filters.sortDir,
-    );
+    const filtered = (apartment.listings || []).filter((listing) => listingMatchesFilters(listing, filters));
+    return sortListingsWithCuratedPriority(filtered, filters.sort, filters.sortDir);
   }, [apartment, filters]);
 
   useEffect(() => {
@@ -49,7 +50,7 @@ export default function ApartmentDetail() {
     return (
       <Shell source={source}>
         <div className="empty">
-          That building isn’t on your list. <Link to="/">Back to dashboard</Link>
+          That building isn’t on your list. <Link to="/">Dashboard</Link>
         </div>
       </Shell>
     );
@@ -79,6 +80,7 @@ export default function ApartmentDetail() {
             <div>
               <h1 className="page-title">{apartment.name}</h1>
               {apartment.location ? <p className="lede">{apartment.location}</p> : null}
+              <SelectionBadges apartment={apartment} />
               <p className={`status ${monitor.tone}`}>
                 <span className="dot">{monitor.icon}</span>
                 {monitor.label}
@@ -90,8 +92,16 @@ export default function ApartmentDetail() {
               </p>
             </div>
             <div className="monitor-actions">
-              {source === "api" ? (
+              {source === "api" || source === "extension" ? (
                 <>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={Boolean(busy)}
+                    onClick={() => run("analyze", () => analyzeApartment(apartment))}
+                  >
+                    {busy === "analyze" ? "Analyzing…" : "Analyze"}
+                  </button>
                   <button
                     type="button"
                     className="btn btn-primary"
@@ -108,14 +118,16 @@ export default function ApartmentDetail() {
                   >
                     Pause monitoring
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    disabled={Boolean(busy)}
-                    onClick={() => run("scrape", () => scrapeNow(apartment.id))}
-                  >
-                    {busy === "scrape" ? "Scraping…" : "Scrape now"}
-                  </button>
+                  {source === "api" ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      disabled={Boolean(busy)}
+                      onClick={() => run("scrape", () => scrapeNow(apartment.id))}
+                    >
+                      {busy === "scrape" ? "Scraping…" : "Scrape now"}
+                    </button>
+                  ) : null}
                 </>
               ) : null}
               <a className="btn btn-ghost" href={apartment.url} target="_blank" rel="noreferrer">
@@ -133,6 +145,12 @@ export default function ApartmentDetail() {
               </button>
             </div>
           </div>
+
+          <ApartmentSelectionActions
+            apartment={apartment}
+            disabled={Boolean(busy)}
+            onChange={(patch) => run("selection", () => setApartmentSelection(apartment.id, patch))}
+          />
 
           {error ? <p className="error">{error}</p> : null}
           {apartment.lastError && apartment.consecutiveFailures > 0 ? (
@@ -171,7 +189,6 @@ export default function ApartmentDetail() {
             <section className="scrape-history">
               <div className="section-head">
                 <h2>Scrape history</h2>
-                <p>Recent attempts from the backend scheduler</p>
               </div>
               <ol className="history-list">
                 {history.map((run) => (
@@ -196,13 +213,7 @@ export default function ApartmentDetail() {
 
           {listings.length === 0 ? (
             <div className="empty">
-              {apartment.listings.length === 0
-                ? source === "api"
-                  ? "No units yet. Start monitoring or click Scrape now."
-                  : source === "extension"
-                    ? "No units yet. Analyze this page in the AptWatch popup."
-                    : "No units yet."
-                : "No units match those filters."}
+              {apartment.listings.length === 0 ? "None" : "No matches"}
             </div>
           ) : (
             <ListingsTable
@@ -210,6 +221,21 @@ export default function ApartmentDetail() {
               sortKey={filters.sort}
               sortDir={filters.sortDir}
               onSort={(key) => setFilters(cycleSort(filters, key))}
+              onSelectionChange={
+                canManage
+                  ? async (listingId, patch) => {
+                      setListingSelectionBusy(listingId);
+                      try {
+                        await setListingSelection(listingId, patch);
+                      } catch (err) {
+                        setError(err.message || "That didn’t work.");
+                      } finally {
+                        setListingSelectionBusy("");
+                      }
+                    }
+                  : undefined
+              }
+              selectionBusyId={listingSelectionBusy}
             />
           )}
         </>

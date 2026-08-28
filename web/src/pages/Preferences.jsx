@@ -62,11 +62,7 @@ export default function Preferences() {
 
   return (
     <Shell source={source}>
-      <h1 className="page-title">Apartment Preferences</h1>
-      <p className="lede">
-        Add a separate search for each kind of place you want — a studio hunt and a 2-bed 2-bath hunt can have different
-        budgets, sizes, and amenities. A listing qualifies if it fits <em>any</em> search. The badge uses the best fit.
-      </p>
+      <h1 className="page-title">Preferences</h1>
 
       <form onSubmit={onSave}>
         <div className="profile-tabs">
@@ -89,7 +85,7 @@ export default function Preferences() {
 
         <section className="prefs-section">
           <div className="section-head">
-            <h2>Other preferences</h2>
+            <h2>Notifications</h2>
           </div>
           <label className="toggle">
             <input
@@ -100,11 +96,8 @@ export default function Preferences() {
                 setBundle((current) => ({ ...current, matchAlerts: event.target.checked }));
               }}
             />
-            Show match % on new-listing Chrome notifications
+            Match % on new-listing notifications
           </label>
-          <p className="lede" style={{ marginTop: 10, marginBottom: 0 }}>
-            Applies to every search. Off by default.
-          </p>
         </section>
 
         {error ? <p className="error">{error}</p> : null}
@@ -117,7 +110,7 @@ export default function Preferences() {
               Delete this search
             </button>
           ) : null}
-          {saved ? <span className="lede" style={{ margin: 0 }}>Saved. Scores update immediately.</span> : null}
+          {saved ? <span className="lede" style={{ margin: 0 }}>Saved</span> : null}
         </div>
       </form>
     </Shell>

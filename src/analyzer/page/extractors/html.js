@@ -1,5 +1,6 @@
 AptWatchAnalyzer.register("html", function extractHtml() {
   return [
+    ...extractSpacesUnits(),
     ...extractUnitCards(),
     ...extractFromTables(),
     ...extractFromMicrodata(),
@@ -7,6 +8,40 @@ AptWatchAnalyzer.register("html", function extractHtml() {
     ...extractHeadingCards(),
   ];
 });
+
+function extractSpacesUnits() {
+  const records = [];
+  const nodes = document.querySelectorAll(
+    "article.spaces-unit[data-spaces-unit], [data-spaces-unit][data-spaces-sort-price]",
+  );
+
+  for (const node of nodes) {
+    const unit = node.getAttribute("data-spaces-unit");
+    const priceRaw = node.getAttribute("data-spaces-sort-price");
+    const plan = node.getAttribute("data-spaces-sort-plan-name");
+    const beds = node.getAttribute("data-spaces-sort-bed");
+    const baths = node.getAttribute("data-spaces-sort-bath");
+    const sqft = node.getAttribute("data-spaces-sort-area");
+    const available = node.getAttribute("data-spaces-soonest");
+    const href = node.getAttribute("data-spaces-href") || node.getAttribute("data-spaces-inventory-href");
+
+    const record = AptWatchAnalyzer.recordFromVisibleText(node.innerText || node.getAttribute("aria-label") || "");
+    if (unit) record.unit = unit;
+    if (plan) record.floorPlan = plan;
+    if (priceRaw) record.price = priceRaw;
+    if (beds != null && beds !== "") record.bedrooms = beds;
+    if (baths != null && baths !== "") record.bathrooms = baths;
+    if (sqft) record.sqft = sqft;
+    if (available) record.availableDate = available;
+    if (href) record.url = href;
+
+    if (hasListingShape(record)) {
+      records.push(AptWatchAnalyzer.stampRecord(record, node, "spaces-unit"));
+    }
+  }
+
+  return records;
+}
 
 function extractUnitCards() {
   const records = [];

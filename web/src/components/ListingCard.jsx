@@ -3,8 +3,14 @@ import { isNewListing, isPriceDrop, priceDropAmount } from "@shared/listingView.
 import { formatAvailable, formatPrice, listingTitle, specLine } from "../lib/format.js";
 import MatchBadge, { MatchDetails } from "./MatchBadge.jsx";
 import BuildingScores, { BuildingNameLink } from "./BuildingScores.jsx";
+import ListingSelectionActions, { ListingSelectionBadges } from "./ListingSelectionActions.jsx";
 
-export default function ListingCard({ listing, showBuilding = false }) {
+export default function ListingCard({
+  listing,
+  showBuilding = false,
+  onSelectionChange,
+  selectionBusy = false,
+}) {
   const isNew = isNewListing(listing);
   const drop = isPriceDrop(listing);
   const dropAmount = priceDropAmount(listing);
@@ -23,6 +29,7 @@ export default function ListingCard({ listing, showBuilding = false }) {
               listingTitle(listing)
             )}
           </h3>
+          <ListingSelectionBadges listing={listing} />
         </div>
         <div className="listing-card-flags">
           <MatchBadge match={listing.match} />
@@ -43,6 +50,15 @@ export default function ListingCard({ listing, showBuilding = false }) {
       {dropAmount ? <p className="listing-date">Down ${dropAmount.toLocaleString("en-US")}</p> : null}
       <MatchDetails match={listing.match} />
       <BuildingScores profile={listing.buildingProfile} compact />
+
+      {onSelectionChange ? (
+        <ListingSelectionActions
+          listing={listing}
+          onChange={onSelectionChange}
+          disabled={selectionBusy}
+          compact
+        />
+      ) : null}
 
       <div className="listing-actions">
         {listing.listingUrl ? (

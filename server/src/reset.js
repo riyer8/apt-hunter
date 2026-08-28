@@ -11,6 +11,5 @@ await query(
    ON CONFLICT (id) DO UPDATE SET match_alerts = false, updated_at = now()`,
 );
 
-console.log("AptWatch database cleared. No demo buildings remain.");
-console.log("Add buildings from the dashboard or Chrome extension.");
+console.log("Database cleared.");
 await pool.end();

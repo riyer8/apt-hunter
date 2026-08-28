@@ -19,7 +19,11 @@ export function ApartmentProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    refresh();
+    let cancelled = false;
+    (async () => {
+      await api.ensureBackendReady();
+      if (!cancelled) await refresh();
+    })();
     const onChange = () => refresh();
     window.addEventListener("aptwatch:apartments-changed", onChange);
     window.addEventListener("storage", onChange);
@@ -32,6 +36,7 @@ export function ApartmentProvider({ children }) {
       chrome.storage.onChanged.addListener(listener);
     }
     return () => {
+      cancelled = true;
       window.removeEventListener("aptwatch:apartments-changed", onChange);
       window.removeEventListener("storage", onChange);
       clearInterval(poll);
@@ -82,6 +87,30 @@ export function ApartmentProvider({ children }) {
     [refresh],
   );
 
+  const setApartmentSelection = useCallback(
+    async (id, patch) => {
+      await api.setApartmentSelection(id, patch);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const setListingSelection = useCallback(
+    async (id, patch) => {
+      await api.setListingSelection(id, patch);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const analyzeApartment = useCallback(
+    async (apartment) => {
+      await api.analyzeApartment(apartment);
+      await refresh();
+    },
+    [refresh],
+  );
+
   const savePreferences = useCallback((prefs) => {
     setPreferences(normalizePreferenceBundle(prefs));
   }, []);
@@ -100,9 +129,12 @@ export function ApartmentProvider({ children }) {
       setMonitorState,
       scrapeNow,
       reanalyzeBuilding,
+      setApartmentSelection,
+      setListingSelection,
+      analyzeApartment,
       savePreferences,
     }),
-    [scoredApartments, preferences, loading, source, refresh, addApartment, removeApartment, setMonitorState, scrapeNow, reanalyzeBuilding, savePreferences],
+    [scoredApartments, preferences, loading, source, refresh, addApartment, removeApartment, setMonitorState, scrapeNow, reanalyzeBuilding, setApartmentSelection, setListingSelection, analyzeApartment, savePreferences],
   );
 
   return <ApartmentContext.Provider value={value}>{children}</ApartmentContext.Provider>;

@@ -39,9 +39,6 @@ export default function Changes() {
   return (
     <Shell source={source}>
       <h1 className="page-title">Recent changes</h1>
-      <p className="lede">
-        New units, price moves, availability shifts, and listings that disappeared after successful scrapes.
-      </p>
 
       <div className="toolbar">
         <div className="filters" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
@@ -84,11 +81,7 @@ export default function Changes() {
       {!ready || loading ? (
         <p className="lede">Loading…</p>
       ) : changes.length === 0 ? (
-        <div className="empty">
-          {source === "api"
-            ? "No matching change events yet. Analyze an availability page in the extension to record them."
-            : "Change history is stored by the backend. Start the AptWatch API, or Analyze a page to see inferred new units and price drops."}
-        </div>
+        <div className="empty">None</div>
       ) : (
         <div className="change-list">
           {changes.map((change) => {

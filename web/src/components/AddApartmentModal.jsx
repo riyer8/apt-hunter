@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { isValidHttpUrl } from "../lib/format.js";
 
-export default function AddApartmentModal({ onClose, onAdd, connected = false }) {
+export default function AddApartmentModal({ onClose, onAdd }) {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
@@ -33,18 +33,13 @@ export default function AddApartmentModal({ onClose, onAdd, connected = false })
         onClick={(event) => event.stopPropagation()}
       >
         <h2 id="add-title">Add apartment</h2>
-        <p>
-          {connected
-            ? "Paste an availability page. It is saved in the database. Analyze it from the extension popup to pull units."
-            : "Paste an availability page. Start the AptWatch backend or load the extension to save it with your real list."}
-        </p>
         <form className="modal-form" onSubmit={submit}>
           <label htmlFor="apt-name">Building name</label>
           <input
             id="apt-name"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="The George"
+            placeholder="Building name"
           />
           <label htmlFor="apt-url">Availability URL</label>
           <input

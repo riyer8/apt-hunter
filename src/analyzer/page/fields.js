@@ -180,12 +180,20 @@ AptWatchAnalyzer.recordFromVisibleText = function recordFromVisibleText(text) {
     if (avalon) record.unit = avalon[1];
   }
   if (!record.unit) {
+    const leading = compact.match(/^(\d{2,6})\s+(?:\$|avail|from|starting)/i);
+    if (leading) record.unit = leading[1];
+  }
+  if (!record.unit) {
     const first = compact.split(/[\s•|,]+/)[0];
     const rest = compact.slice(first.length);
     const mixed = first && /[A-Z-]/i.test(first) && /\d/.test(first) && first.length <= 16;
     if (mixed && rest.length > 0 && /^(?:[A-Z]{1,3}-)?\d+[A-Z0-9]*(?:-[A-Z0-9]{1,8})?$/i.test(first)) {
       record.unit = first;
     }
+  }
+  if (!record.unit && /^\d{2,6}\b/.test(compact)) {
+    const plain = compact.match(/^(\d{2,6})\b/);
+    if (plain) record.unit = plain[1];
   }
 
   const priceMatch =
@@ -207,10 +215,15 @@ AptWatchAnalyzer.recordFromVisibleText = function recordFromVisibleText(text) {
   );
   if (dateMatch) record.availableDate = dateMatch[0];
 
-  const planMatch = compact.match(
-    /\b((?:corner\s+)?(?:alcove\s+)?studio|(?:corner\s+)?\d+\s+bed(?:room)?s?)\b/i,
-  );
-  if (planMatch) record.floorPlan = planMatch[1];
+  const planCode = compact.match(/\b\d[\d,]*\s*sq\.?\s*ft\.?\s+([A-Z][A-Z0-9]{0,3})\b/i);
+  if (planCode) record.floorPlan = planCode[1].toUpperCase();
+
+  if (!record.floorPlan) {
+    const planMatch = compact.match(
+      /\b((?:corner\s+)?(?:alcove\s+)?studio|(?:corner\s+)?\d+\s+bed(?:room)?s?)\b/i,
+    );
+    if (planMatch) record.floorPlan = planMatch[1];
+  }
 
   return record;
 };

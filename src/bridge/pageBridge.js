@@ -64,11 +64,72 @@ window.addEventListener("message", (event) => {
     return;
   }
 
+  if (message.type === "ANALYZE") {
+    chrome.runtime.sendMessage(
+      {
+        type: "ANALYZE_APARTMENT",
+        id: message.id,
+        url: message.url,
+      },
+      () => publish(),
+    );
+    return;
+  }
+
+  if (message.type === "SYNC_FROM_BACKEND") {
+    chrome.runtime.sendMessage({ type: "SYNC_FROM_BACKEND" }, () => publish());
+    return;
+  }
+
   if (message.type === "SAVE_UI") {
     chrome.storage.local.get("aptwatchUi", (result) => {
       chrome.storage.local.set({
         aptwatchUi: { ...(result.aptwatchUi || {}), ...(message.patch || {}) },
       });
+    });
+    return;
+  }
+
+  if (message.type === "UPDATE_SELECTION") {
+    chrome.storage.local.get(["apartments", "extractedListings"], (result) => {
+      const patch = message.patch || {};
+      const applyPatch = (item) => {
+        const next = { ...item };
+        if (patch.favorite !== undefined) next.isFavorite = patch.favorite;
+        if (patch.watchlisted !== undefined) next.isWatchlisted = patch.watchlisted;
+        if (patch.discarded !== undefined) next.isDiscarded = patch.discarded;
+        return next;
+      };
+
+      if (message.apartmentId) {
+        const apartments = (result.apartments || []).map((item) =>
+          item.id === message.apartmentId ? applyPatch(item) : item,
+        );
+        chrome.storage.local.set({ apartments });
+        return;
+      }
+
+      if (message.listingId) {
+        let changed = false;
+        const apartments = (result.apartments || []).map((apartment) => {
+          const listings = (apartment.listings || []).map((listing) => {
+            if (listing.id !== message.listingId) return listing;
+            changed = true;
+            return applyPatch(listing);
+          });
+          return listings === apartment.listings ? apartment : { ...apartment, listings };
+        });
+        const extracted = { ...(result.extractedListings || {}) };
+        for (const [aptId, listings] of Object.entries(extracted)) {
+          const nextListings = listings.map((listing) => {
+            if (listing.id !== message.listingId) return listing;
+            changed = true;
+            return applyPatch(listing);
+          });
+          if (nextListings !== listings) extracted[aptId] = nextListings;
+        }
+        if (changed) chrome.storage.local.set({ apartments, extractedListings: extracted });
+      }
     });
   }
 });

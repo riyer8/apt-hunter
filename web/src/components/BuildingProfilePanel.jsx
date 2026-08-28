@@ -10,7 +10,6 @@ export default function BuildingProfilePanel({ apartment, onReanalyze, busy, sou
       <section className="building-profile-panel">
         <div className="section-head">
           <h2>Building profile</h2>
-          <p>No building analysis yet.</p>
         </div>
         {source === "api" ? (
           <button type="button" className="btn btn-ghost" disabled={busy} onClick={onReanalyze}>
@@ -29,8 +28,8 @@ export default function BuildingProfilePanel({ apartment, onReanalyze, busy, sou
       <div className="section-head">
         <h2>Building profile</h2>
         <p>
-          Overall building score: <OverallScore profile={profile} />
-          {missing ? " · some information missing" : ""}
+          Overall <OverallScore profile={profile} />
+          {missing ? " · incomplete" : ""}
         </p>
       </div>
 
@@ -71,11 +70,8 @@ export default function BuildingProfilePanel({ apartment, onReanalyze, busy, sou
 
       {profile.summary ? (
         <div className="building-summary">
-          <h3>AI summary</h3>
+          <h3>Summary</h3>
           <p>{profile.summary}</p>
-          <p className="listing-date">
-            Building-level only. A unit can still have a poor view or little sun even when this score is high.
-          </p>
         </div>
       ) : null}
 

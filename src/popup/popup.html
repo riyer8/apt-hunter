@@ -19,7 +19,6 @@
     </header>
 
     <section id="test-extract" class="test-extract" hidden>
-      <p class="hint">Paste a URL to inspect extraction. Nothing is saved.</p>
       <div class="test-row">
         <input
           id="test-url-input"
@@ -41,7 +40,7 @@
         id="name-input"
         name="name"
         type="text"
-        placeholder="The Helix"
+        placeholder="Building name"
         autocomplete="off"
         spellcheck="true"
       />
@@ -62,9 +61,8 @@
 
     <section class="monitored">
       <h2>Monitored Apartments</h2>
-      <p id="empty-state" class="empty">No apartments yet.</p>
+      <p id="empty-state" class="empty">None</p>
       <ul id="apartment-list"></ul>
-      <p class="persist-note">Your buildings, listings, and price history stay in this extension. Clearing cookies or cache does not wipe them.</p>
     </section>
 
     <script type="module" src="popup.js"></script>

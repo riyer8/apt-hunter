@@ -1,3 +1,5 @@
+import { listingPassesSelection } from "./selection.js";
+
 const NEW_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 export function isNewListing(listing, now = Date.now()) {
@@ -27,6 +29,7 @@ export function isRecentlyChanged(listing, now = Date.now()) {
 
 export function listingMatchesFilters(listing, filters, now = Date.now()) {
   if (!listing) return false;
+  if (!listingPassesSelection(listing, filters)) return false;
 
   if (filters.maxRent != null && filters.maxRent !== "") {
     if (listing.price == null || listing.price > Number(filters.maxRent)) return false;
@@ -89,6 +92,19 @@ export function sortListings(listings, sortKey = "unit", sortDir) {
   if (dir === "desc" && !DESC_SORT_KEYS.has(key)) copy.reverse();
   if (dir === "asc" && DESC_SORT_KEYS.has(key)) copy.reverse();
   return copy;
+}
+
+export function sortListingsWithCuratedPriority(listings, sortKey = "unit", sortDir) {
+  const sorted = sortListings(listings, sortKey, sortDir);
+  const favorites = [];
+  const watchlist = [];
+  const rest = [];
+  for (const listing of sorted) {
+    if (listing.isFavorite) favorites.push(listing);
+    else if (listing.isWatchlisted) watchlist.push(listing);
+    else rest.push(listing);
+  }
+  return [...favorites, ...watchlist, ...rest];
 }
 
 export function compareListings(left, right, key) {

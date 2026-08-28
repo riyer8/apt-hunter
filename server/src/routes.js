@@ -6,6 +6,7 @@ import {
   deleteApartment,
   getAlertPrefs,
   getApartmentRow,
+  getListingRow,
   getUserPrefs,
   listApartmentRows,
   listChanges,
@@ -18,14 +19,17 @@ import {
   recordScrape,
   saveAlertPrefs,
   saveUserPrefs,
+  setApartmentSelection,
+  setListingSelection,
   setMonitorState,
+  setMonitoringStatus,
   toMatchedListing,
   unreadNotificationCount,
 } from "./store.js";
 import { toApiScrapeRun } from "./serialize.js";
-import { isUuid, parseAlertPrefs, parseApartmentInput, parseMonitorState, parsePreferenceBundle, parseScrapeInput } from "./validate.js";
+import { isUuid, parseAlertPrefs, parseApartmentInput, parseMonitorState, parsePreferenceBundle, parseScrapeInput, parseSelectionPatch } from "./validate.js";
 import { getMonitor, schedulerStatus } from "./scheduler.js";
-import { listBuildingProfileHistory, reanalyzeBuilding, buildingProfilesFor } from "./buildingAnalyze.js";
+import { listBuildingProfileHistory, reanalyzeBuilding, buildingProfilesFor, backfillMissingBuildingProfiles } from "./buildingAnalyze.js";
 
 export const apartmentsRouter = express.Router();
 
@@ -111,9 +115,12 @@ apartmentsRouter.post("/:id/scrape", async (req, res, next) => {
 apartmentsRouter.post("/:id/scrape-now", async (req, res, next) => {
   try {
     const apartment = await loadApartment(req.params.id);
+    await setMonitoringStatus(apartment.id, "analyzing");
     const result = await getMonitor().scrapeNow(apartment);
     if (result.skipped) {
-      res.status(409).json({ error: "A scrape is already running for this apartment.", result });
+      const fresh = await getApartmentRow(apartment.id);
+      const [saved] = await assembleApartments([fresh]);
+      res.status(409).json({ error: "A scrape is already running for this apartment.", result, apartment: saved });
       return;
     }
     const fresh = await getApartmentRow(apartment.id);
@@ -129,6 +136,18 @@ apartmentsRouter.post("/:id/monitor", async (req, res, next) => {
     await loadApartment(req.params.id);
     const state = parseMonitorState(req.body);
     const updated = await setMonitorState(req.params.id, state);
+    const [saved] = await assembleApartments([updated]);
+    res.json(saved);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apartmentsRouter.post("/:id/selection", async (req, res, next) => {
+  try {
+    await loadApartment(req.params.id);
+    const patch = parseSelectionPatch(req.body);
+    const updated = await setApartmentSelection(req.params.id, patch);
     const [saved] = await assembleApartments([updated]);
     res.json(saved);
   } catch (error) {
@@ -266,10 +285,45 @@ export async function listChangesHandler(req, res, next) {
 }
 
 export function schedulerStatusHandler(_req, res) {
-  res.json({ ok: true, scheduler: schedulerStatus() });
+  res.json({
+    ok: true,
+    scheduler: schedulerStatus(),
+    openai: Boolean(process.env.OPENAI_API_KEY),
+  });
+}
+
+export async function wakeHandler(_req, res, next) {
+  try {
+    await backfillMissingBuildingProfiles();
+    res.json({
+      ok: true,
+      scheduler: schedulerStatus(),
+      openai: Boolean(process.env.OPENAI_API_KEY),
+    });
+  } catch (error) {
+    next(error);
+  }
 }
 
 export const preferencesRouter = express.Router();
+
+export const listingsRouter = express.Router();
+
+listingsRouter.post("/:id/selection", async (req, res, next) => {
+  try {
+    const listing = await loadListing(req.params.id);
+    const patch = parseSelectionPatch(req.body);
+    const updated = await setListingSelection(listing.id, patch);
+    const apartment = await getApartmentRow(listing.apartment_id);
+    const userPrefs = await getUserPrefs();
+    const profiles = await buildingProfilesFor([apartment.id]);
+    res.json(
+      toMatchedListing(updated, apartment, null, userPrefs, profiles.get(apartment.id) || null),
+    );
+  } catch (error) {
+    next(error);
+  }
+});
 
 preferencesRouter.get("/", async (_req, res, next) => {
   try {
@@ -286,6 +340,21 @@ preferencesRouter.put("/", async (req, res, next) => {
     next(error);
   }
 });
+
+async function loadListing(id) {
+  if (!isUuid(id)) {
+    const error = new Error("That listing id is not valid.");
+    error.status = 400;
+    throw error;
+  }
+  const listing = await getListingRow(id);
+  if (!listing) {
+    const error = new Error("Listing not found.");
+    error.status = 404;
+    throw error;
+  }
+  return listing;
+}
 
 async function loadApartment(id) {
   if (!isUuid(id)) {

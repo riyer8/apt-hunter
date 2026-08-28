@@ -17,9 +17,9 @@ const EXTRACTOR_FILES = [
 ];
 
 const PAGE_STATE = "src/analyzer/page/pageState.js";
-const LOAD_TIMEOUT_MS = 25000;
-const RENDER_WAIT_MS = 4000;
-const RETRY_WAIT_MS = 3500;
+const LOAD_TIMEOUT_MS = 45000;
+const RENDER_WAIT_MS = 6000;
+const RETRY_WAIT_MS = 4000;
 
 let browserPromise = null;
 let classifyModule = null;

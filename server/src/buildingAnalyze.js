@@ -131,11 +131,16 @@ export async function reanalyzeBuilding(apartment) {
 }
 
 export async function backfillMissingBuildingProfiles() {
+  const hasOpenAi = Boolean(process.env.OPENAI_API_KEY);
   const result = await query(
     `SELECT a.*
      FROM apartments a
      LEFT JOIN building_profiles p ON p.apartment_id = a.id
-     WHERE p.apartment_id IS NULL OR p.status IN ('pending', 'running')`,
+     WHERE p.apartment_id IS NULL
+        OR p.status IN ('pending', 'running')
+        OR ($1::boolean AND p.status = 'skipped' AND p.model IS NULL)
+        OR ($1::boolean AND p.status = 'failed')`,
+    [hasOpenAi],
   );
   for (const row of result.rows) {
     await insertPendingBuildingProfile(row.id);

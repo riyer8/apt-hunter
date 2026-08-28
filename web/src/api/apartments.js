@@ -1,5 +1,4 @@
 import { STATUS, createApartment } from "@shared/schema.js";
-import { MOCK_APARTMENTS } from "../data/mockApartments.js";
 
 const STORAGE_KEY = "aptwatch.web.apartments";
 const SOURCE_EXT = "aptwatch-extension";
@@ -26,9 +25,13 @@ export function getDataSource() {
   return "local";
 }
 
-async function apiReady() {
-  if (apiState.ok === true) return true;
-  if (apiState.ok === false && Date.now() - apiState.checkedAt < 4000) return false;
+function resetApiProbe() {
+  apiState = { ok: null, checkedAt: 0 };
+}
+
+async function apiReady({ force = false } = {}) {
+  if (!force && apiState.ok === true) return true;
+  if (!force && apiState.ok === false && Date.now() - apiState.checkedAt < 4000) return false;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 400);
@@ -41,18 +44,30 @@ async function apiReady() {
   return apiState.ok;
 }
 
-async function apiRequest(path, { method = "GET", body } = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (response.status === 204) return null;
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error || `API request failed (${response.status})`);
+async function apiRequest(path, { method = "GET", body, timeoutMs = 30000 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    if (response.status === 204) return null;
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || `API request failed (${response.status})`);
+    }
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Request timed out. The scrape may still be running — refresh in a moment.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
-  return data;
 }
 
 function clone(value) {
@@ -89,14 +104,10 @@ function toDashboardApartments(apartments, ledger) {
 function readLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      const seed = clone(MOCK_APARTMENTS);
-      writeLocal(seed);
-      return seed;
-    }
+    if (!raw) return [];
     return JSON.parse(raw);
   } catch {
-    return clone(MOCK_APARTMENTS);
+    return [];
   }
 }
 
@@ -106,6 +117,39 @@ function writeLocal(apartments) {
 
 function requestBridge() {
   window.postMessage({ source: SOURCE_WEB, type: "GET" }, "*");
+}
+
+function requestExtensionSync() {
+  if (typeof window === "undefined") return;
+  window.postMessage({ source: SOURCE_WEB, type: "SYNC_FROM_BACKEND" }, "*");
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Mirror extension popup startup: wait for the API, wake backend jobs, sync extension storage.
+ */
+export async function ensureBackendReady({ maxWaitMs = 30000 } = {}) {
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    resetApiProbe();
+    if (await apiReady({ force: true })) {
+      try {
+        await apiRequest("/wake", { method: "POST", timeoutMs: 10000 });
+      } catch {
+        // Health succeeded; wake is best-effort.
+      }
+      requestExtensionSync();
+      await waitForBridge(800);
+      return true;
+    }
+    await sleep(1000);
+  }
+  requestExtensionSync();
+  await waitForBridge(800);
+  return false;
 }
 
 function waitForEvent(name, timeoutMs) {
@@ -325,14 +369,141 @@ export async function setMonitorState(id, state) {
   if (await apiReady()) {
     return apiRequest(`/apartments/${id}/monitor`, { method: "POST", body: { state } });
   }
-  throw new Error("Start and pause monitoring need the AptWatch API.");
+  throw new Error("Start and pause monitoring need the API.");
+}
+
+export async function setApartmentSelection(id, patch) {
+  if (await apiReady()) {
+    return apiRequest(`/apartments/${id}/selection`, { method: "POST", body: patch });
+  }
+  const apartments = await listApartments();
+  const index = apartments.findIndex((item) => item.id === id);
+  if (index < 0) throw new Error("Apartment not found.");
+  const next = applySelectionPatch(apartments[index], patch);
+  apartments[index] = next;
+  if (hasChromeStorage()) {
+    const data = await chrome.storage.local.get("apartments");
+    const stored = (data.apartments || []).map((item) => (item.id === id ? { ...item, ...next } : item));
+    await chrome.storage.local.set({ apartments: stored });
+    window.dispatchEvent(new Event("aptwatch:apartments-changed"));
+    return next;
+  }
+  if (bridgeConnected || (await waitForBridge(400), bridgeConnected)) {
+    window.postMessage({ source: SOURCE_WEB, type: "UPDATE_SELECTION", apartmentId: id, patch }, "*");
+    await waitForEvent("aptwatch:apartments-changed", 1500);
+    return next;
+  }
+  writeLocal(apartments);
+  window.dispatchEvent(new Event("aptwatch:apartments-changed"));
+  return next;
+}
+
+export async function setListingSelection(id, patch) {
+  if (await apiReady()) {
+    return apiRequest(`/listings/${id}/selection`, { method: "POST", body: patch });
+  }
+  const updated = await updateStoredListingSelection(id, patch);
+  if (!updated) throw new Error("Listing not found.");
+  return updated;
+}
+
+function applySelectionPatch(target, patch) {
+  const next = { ...target };
+  if (patch.favorite !== undefined) next.isFavorite = patch.favorite;
+  if (patch.watchlisted !== undefined) next.isWatchlisted = patch.watchlisted;
+  if (patch.discarded !== undefined) next.isDiscarded = patch.discarded;
+  return next;
+}
+
+async function updateStoredListingSelection(id, patch) {
+  if (hasChromeStorage()) {
+    const data = await chrome.storage.local.get(["apartments", "extractedListings"]);
+    let updated = null;
+    const apartments = (data.apartments || []).map((apartment) => {
+      const listings = (apartment.listings || []).map((listing) => {
+        if (listing.id !== id) return listing;
+        updated = applySelectionPatch(listing, patch);
+        return updated;
+      });
+      return listings === apartment.listings ? apartment : { ...apartment, listings };
+    });
+    const extracted = { ...(data.extractedListings || {}) };
+    for (const [aptId, listings] of Object.entries(extracted)) {
+      const nextListings = listings.map((listing) => {
+        if (listing.id !== id) return listing;
+        updated = applySelectionPatch(listing, patch);
+        return updated;
+      });
+      if (nextListings !== listings) extracted[aptId] = nextListings;
+    }
+    if (!updated) return null;
+    await chrome.storage.local.set({ apartments, extractedListings: extracted });
+    window.dispatchEvent(new Event("aptwatch:apartments-changed"));
+    return updated;
+  }
+
+  if (bridgeConnected || (await waitForBridge(400), bridgeConnected)) {
+    window.postMessage({ source: SOURCE_WEB, type: "UPDATE_SELECTION", listingId: id, patch }, "*");
+    await waitForEvent("aptwatch:apartments-changed", 1500);
+    for (const apartment of (await listApartments())) {
+      const listing = (apartment.listings || []).find((item) => item.id === id);
+      if (listing) return listing;
+    }
+    return null;
+  }
+
+  const apartments = readLocal();
+  let updated = null;
+  const nextApartments = apartments.map((apartment) => {
+    const listings = (apartment.listings || []).map((listing) => {
+      if (listing.id !== id) return listing;
+      updated = applySelectionPatch(listing, patch);
+      return updated;
+    });
+    return listings === apartment.listings ? apartment : { ...apartment, listings };
+  });
+  if (!updated) return null;
+  writeLocal(nextApartments);
+  window.dispatchEvent(new Event("aptwatch:apartments-changed"));
+  return updated;
+}
+
+export async function analyzeApartment(apartment) {
+  const id = apartment?.id || apartment;
+  const url = apartment?.url;
+  if (await apiReady()) {
+    return apiRequest(`/apartments/${id}/scrape-now`, { method: "POST", timeoutMs: 120000 });
+  }
+  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({ type: "ANALYZE_APARTMENT", id, url }, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        if (response?.ok) resolve(response.result);
+        else reject(new Error(response?.error || "Analyze failed."));
+      });
+    });
+  }
+  if (bridgeConnected || (await waitForBridge(400), bridgeConnected)) {
+    pendingError = null;
+    window.postMessage({ source: SOURCE_WEB, type: "ANALYZE", id, url }, "*");
+    await Promise.race([
+      waitForEvent("aptwatch:apartments-changed", 120000),
+      waitForEvent("aptwatch:apartments-error", 120000),
+    ]);
+    if (pendingError) throw new Error(pendingError);
+    return (await listApartments()).find((item) => item.id === id) || null;
+  }
+  throw new Error("Analyze needs the API or extension.");
 }
 
 export async function scrapeNow(id) {
   if (await apiReady()) {
-    return apiRequest(`/apartments/${id}/scrape-now`, { method: "POST" });
+    return apiRequest(`/apartments/${id}/scrape-now`, { method: "POST", timeoutMs: 120000 });
   }
-  throw new Error("Scrape Now needs the AptWatch API.");
+  throw new Error("Scrape Now needs the API.");
 }
 
 export async function listScrapeHistory(id) {
@@ -346,13 +517,7 @@ export async function reanalyzeBuilding(id) {
   if (await apiReady()) {
     return apiRequest(`/apartments/${id}/building-profile/reanalyze`, { method: "POST" });
   }
-  throw new Error("Re-analyze Building needs the AptWatch API and an OpenAI key.");
-}
-
-export async function resetMockData() {
-  if (getDataSource() !== "local") return listApartments();
-  writeLocal(clone(MOCK_APARTMENTS));
-  return clone(readLocal());
+  throw new Error("Re-analyze Building needs the API and an OpenAI key.");
 }
 
 export function persistUiPrefs(patch) {

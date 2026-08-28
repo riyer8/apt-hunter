@@ -9,6 +9,7 @@ import {
 } from "../lib/format.js";
 import MatchBadge from "./MatchBadge.jsx";
 import { OverallScore } from "./BuildingScores.jsx";
+import ListingSelectionActions from "./ListingSelectionActions.jsx";
 
 const COLUMNS = [
   { key: "building", label: "Building" },
@@ -27,9 +28,12 @@ export default function ListingsTable({
   sortDir = "",
   onSort,
   showBuilding = false,
+  onSelectionChange,
+  selectionBusyId = "",
 }) {
   const columns = COLUMNS.filter((column) => showBuilding || column.key !== "building");
   const resolvedDir = sortDir || (DESC_SORT_KEYS.has(sortKey) ? "desc" : "asc");
+  const showSelection = Boolean(onSelectionChange);
 
   return (
     <div className="listings-table-wrap">
@@ -51,6 +55,7 @@ export default function ListingsTable({
                 </th>
               );
             })}
+            {showSelection ? <th>Curate</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -66,8 +71,14 @@ export default function ListingsTable({
               unitLabel
             );
 
+            const rowClass = listing.isFavorite
+              ? "listing-row-favorite"
+              : listing.isWatchlisted
+                ? "listing-row-watchlist"
+                : undefined;
+
             return (
-              <tr key={listing.id || `${listing.apartmentId}-${unitLabel}`}>
+              <tr key={listing.id || `${listing.apartmentId}-${unitLabel}`} className={rowClass}>
                 {showBuilding ? (
                   <td>
                     {listing.apartmentId ? (
@@ -78,7 +89,19 @@ export default function ListingsTable({
                   </td>
                 ) : null}
                 <td>
-                  {unit}
+                  <span className="listing-unit-cell">
+                    {listing.isFavorite ? (
+                      <span className="listing-curate-mark favorite" title="Favorite">
+                        ★
+                      </span>
+                    ) : null}
+                    {listing.isWatchlisted ? (
+                      <span className="listing-curate-mark watchlist" title="Watchlist">
+                        👁
+                      </span>
+                    ) : null}
+                    {unit}
+                  </span>
                   {isNew ? <span className="badge badge-new">NEW</span> : null}
                   {drop ? <span className="badge badge-drop">Drop</span> : null}
                 </td>
@@ -95,6 +118,16 @@ export default function ListingsTable({
                 <td className="num">{formatBedsBathsShort(listing)}</td>
                 <td className="num">{listing.sqft == null ? "—" : listing.sqft.toLocaleString("en-US")}</td>
                 <td>{formatAvailableShort(listing.availableDate)}</td>
+                {showSelection ? (
+                  <td className="listing-selection-cell">
+                    <ListingSelectionActions
+                      listing={listing}
+                      compact
+                      disabled={selectionBusyId === listing.id}
+                      onChange={(patch) => onSelectionChange(listing.id, patch)}
+                    />
+                  </td>
+                ) : null}
               </tr>
             );
           })}

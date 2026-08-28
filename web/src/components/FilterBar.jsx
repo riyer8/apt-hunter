@@ -67,9 +67,21 @@ export default function FilterBar({ filters, onChange, showSort = false }) {
             onChange={set("minWalkability")}
           />
         </label>
+        <label className="field">
+          <span>Show</span>
+          <select value={filters.selectionScope || ""} onChange={set("selectionScope")}>
+            <option value="">All buildings</option>
+            <option value="favorite">Favorites only</option>
+            <option value="watchlist">Watchlist only</option>
+          </select>
+        </label>
       </div>
 
       <div className="toggles">
+        <label className="toggle">
+          <input type="checkbox" checked={filters.showDiscarded} onChange={set("showDiscarded")} />
+          Show hidden buildings & units
+        </label>
         <label className="toggle">
           <input type="checkbox" checked={filters.newOnly} onChange={set("newOnly")} />
           NEW listings only

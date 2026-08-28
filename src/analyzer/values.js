@@ -215,8 +215,11 @@ export function parseUnit(value) {
 
   if (isUnitCode(text, { allowPlainNumber: true })) return text.toUpperCase();
 
+  const leadingNumber = text.match(/^(\d{2,6})\s+(?:\$|avail|from|starting)/i);
+  if (leadingNumber) return leadingNumber[1];
+
   const firstToken = text.split(/[\s•|,/]+/)[0];
-  if (firstToken && firstToken !== text && isUnitCode(firstToken, { allowPlainNumber: false })) {
+  if (firstToken && firstToken !== text && isUnitCode(firstToken, { allowPlainNumber: true })) {
     return firstToken.toUpperCase();
   }
 
@@ -250,6 +253,10 @@ export function parseFloorPlan(value) {
   const named = text.match(
     /\b((?:corner\s+)?(?:alcove\s+)?studio|(?:corner\s+)?\d+\s+bed(?:room)?s?)\b/i,
   );
+
+  const planCode = text.match(/\b\d[\d,]*\s*sq\.?\s*ft\.?\s+([A-Z][A-Z0-9]{0,3})\b/i);
+  if (planCode) return planCode[1].toUpperCase();
+
   if (named) return titleCase(named[1]);
 
   const labeled = text.match(/\b(?:plan|floor\s*plan|model)\s*[:#-]?\s*([A-Z0-9][A-Z0-9 _-]{0,24})\b/i);

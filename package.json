@@ -1,0 +1,14 @@
+{
+  "name": "aptwatch",
+  "private": true,
+  "version": "0.7.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:server": "npm run dev --prefix server",
+    "dev:web": "npm run dev --prefix web",
+    "reset": "npm run reset --prefix server",
+    "test": "npm test --prefix server",
+    "smoke": "node scripts/smoke.mjs"
+  }
+}

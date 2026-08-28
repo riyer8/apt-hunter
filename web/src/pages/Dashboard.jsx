@@ -1,8 +1,14 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { listingMatchesFilters, isNewListing, isRecentlyChanged, sortListings } from "@shared/listingView.js";
+import {
+  listingMatchesFilters,
+  isNewListing,
+  isRecentlyChanged,
+  sortListings,
+  sortListingsWithCuratedPriority,
+} from "@shared/listingView.js";
 import { useApartments } from "../state/ApartmentContext.jsx";
-import { apartmentVisible } from "../lib/filters.js";
+import { apartmentVisible, apartmentIncludedInListings } from "../lib/filters.js";
 import { formatPrice, formatRelativeTime, listingTitle } from "../lib/format.js";
 import { cycleSort, usePersistentFilters } from "../hooks/usePersistentFilters.js";
 import Shell from "../components/Shell.jsx";
@@ -13,14 +19,115 @@ import ListingsTable from "../components/ListingsTable.jsx";
 import AddApartmentModal from "../components/AddApartmentModal.jsx";
 
 export default function Dashboard() {
-  const { apartments, loading, source, addApartment } = useApartments();
+  const {
+    apartments,
+    loading,
+    source,
+    addApartment,
+    removeApartment,
+    setApartmentSelection,
+    setListingSelection,
+    analyzeApartment,
+  } = useApartments();
   const [filters, setFilters] = usePersistentFilters();
   const [adding, setAdding] = useState(false);
+  const [selectionBusy, setSelectionBusy] = useState("");
+  const [listingSelectionBusy, setListingSelectionBusy] = useState("");
+  const [analyzeBusy, setAnalyzeBusy] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState("");
+  const canManage = source === "api" || source === "extension";
 
   const visible = useMemo(
     () => apartments.filter((apartment) => apartmentVisible(apartment, filters)),
     [apartments, filters],
   );
+
+  const favorites = useMemo(
+    () =>
+      !filters.selectionScope
+        ? apartments.filter(
+            (apartment) => apartment.isFavorite && apartmentVisible(apartment, { ...filters, selectionScope: "" }),
+          )
+        : [],
+    [apartments, filters],
+  );
+
+  const watchlist = useMemo(
+    () =>
+      !filters.selectionScope
+        ? apartments.filter(
+            (apartment) =>
+              apartment.isWatchlisted &&
+              !apartment.isFavorite &&
+              apartmentVisible(apartment, { ...filters, selectionScope: "" }),
+          )
+        : [],
+    [apartments, filters],
+  );
+
+  const visibleMain = useMemo(
+    () =>
+      filters.selectionScope
+        ? visible
+        : visible.filter((apartment) => !apartment.isFavorite && !apartment.isWatchlisted),
+    [visible, filters.selectionScope],
+  );
+
+  async function handleListingSelection(id, patch) {
+    setListingSelectionBusy(id);
+    try {
+      await setListingSelection(id, patch);
+    } catch (error) {
+      window.alert(error?.message || "Could not update that unit.");
+    } finally {
+      setListingSelectionBusy("");
+    }
+  }
+
+  async function handleSelectionChange(id, patch) {
+    setSelectionBusy(id);
+    try {
+      await setApartmentSelection(id, patch);
+    } catch (error) {
+      window.alert(error?.message || "Could not update that building.");
+    } finally {
+      setSelectionBusy("");
+    }
+  }
+
+  async function handleAnalyze(apartment) {
+    setAnalyzeBusy(apartment.id);
+    try {
+      await analyzeApartment(apartment);
+    } catch (error) {
+      window.alert(error?.message || "Analyze failed.");
+    } finally {
+      setAnalyzeBusy("");
+    }
+  }
+
+  async function handleDelete(apartment) {
+    if (!window.confirm(`Delete ${apartment.name}?`)) return;
+    setDeleteBusy(apartment.id);
+    try {
+      await removeApartment(apartment.id);
+    } finally {
+      setDeleteBusy("");
+    }
+  }
+
+  function cardProps(apartment) {
+    return {
+      apartment,
+      filters,
+      onSelectionChange: canManage ? (patch) => handleSelectionChange(apartment.id, patch) : undefined,
+      selectionBusy: selectionBusy === apartment.id,
+      onAnalyze: canManage ? handleAnalyze : undefined,
+      onDelete: canManage ? handleDelete : undefined,
+      analyzeBusy: analyzeBusy === apartment.id,
+      deleteBusy: deleteBusy === apartment.id,
+    };
+  }
 
   const allListings = useMemo(
     () => apartments.flatMap((apartment) => apartment.listings || []),
@@ -30,7 +137,9 @@ export default function Dashboard() {
   const filteredListings = useMemo(
     () =>
       sortListings(
-        apartments.flatMap((apartment) =>
+        apartments
+          .filter((apartment) => apartmentIncludedInListings(apartment, filters))
+          .flatMap((apartment) =>
           (apartment.listings || [])
             .filter((listing) =>
               listingMatchesFilters(
@@ -77,6 +186,27 @@ export default function Dashboard() {
     [filteredListings],
   );
 
+  const favoriteUnits = useMemo(
+    () => (!filters.selectionScope ? filteredListings.filter((listing) => listing.isFavorite) : []),
+    [filteredListings, filters.selectionScope],
+  );
+
+  const watchlistUnits = useMemo(
+    () =>
+      !filters.selectionScope
+        ? filteredListings.filter((listing) => listing.isWatchlisted && !listing.isFavorite)
+        : [],
+    [filteredListings, filters.selectionScope],
+  );
+
+  const unitsMain = useMemo(
+    () =>
+      filters.selectionScope
+        ? filteredListings
+        : sortListingsWithCuratedPriority(filteredListings, filters.sort, filters.sortDir),
+    [filteredListings, filters.selectionScope, filters.sort, filters.sortDir],
+  );
+
   return (
     <Shell
       source={source}
@@ -86,14 +216,7 @@ export default function Dashboard() {
         </button>
       }
     >
-      <h1 className="page-title">Your buildings, at a glance.</h1>
-      <p className="lede">
-        {source === "api"
-          ? "The backend checks availability pages on a 30-minute schedule. Start monitoring on a building, or use Scrape Now."
-          : source === "extension"
-            ? "This dashboard reads the same saved list as the Chrome extension. Analyze a page in the popup to refresh units here."
-            : "Showing sample data. Start the backend or load the AptWatch extension to see real apartments."}
-      </p>
+      <h1 className="page-title">Dashboard</h1>
 
       <section className="stats">
         <div className="stat">
@@ -123,7 +246,7 @@ export default function Dashboard() {
           <div className="section-head">
             <h2>🔥 Best matches</h2>
             <p>
-              Sorted by preference score · <Link to="/preferences">Edit preferences</Link>
+              <Link to="/preferences">Preferences</Link>
             </p>
           </div>
           <ol className="best-matches">
@@ -149,12 +272,46 @@ export default function Dashboard() {
           <div className="section-head">
             <h2>Recently changed</h2>
             <p>
-              New units and updates from the latest checks · <Link to="/changes">See all changes</Link>
+              <Link to="/changes">All changes</Link>
             </p>
           </div>
           <div className="changed-rail">
             {recent.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} showBuilding />
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                showBuilding
+                onSelectionChange={canManage ? (patch) => handleListingSelection(listing.id, patch) : undefined}
+                selectionBusy={listingSelectionBusy === listing.id}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {favorites.length > 0 ? (
+        <section>
+          <div className="section-head">
+            <h2>★ Favorite buildings</h2>
+            <p>{favorites.length} building{favorites.length === 1 ? "" : "s"}</p>
+          </div>
+          <div className="card-grid">
+            {favorites.map((apartment) => (
+              <ApartmentCard key={`fav-${apartment.id}`} {...cardProps(apartment)} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {watchlist.length > 0 ? (
+        <section>
+          <div className="section-head">
+            <h2>👁 Building watchlist</h2>
+            <p>{watchlist.length} building{watchlist.length === 1 ? "" : "s"}</p>
+          </div>
+          <div className="card-grid">
+            {watchlist.map((apartment) => (
+              <ApartmentCard key={`watch-${apartment.id}`} {...cardProps(apartment)} />
             ))}
           </div>
         </section>
@@ -162,58 +319,90 @@ export default function Dashboard() {
 
       <section>
         <div className="section-head">
-          <h2>Monitored apartments</h2>
+          <h2>{filters.selectionScope ? "Filtered buildings" : "All buildings"}</h2>
           <p>
-            {visible.length} building{visible.length === 1 ? "" : "s"}
+            {visibleMain.length} building{visibleMain.length === 1 ? "" : "s"}
           </p>
         </div>
-        {visible.length === 0 && !loading ? (
+        {visibleMain.length === 0 && !loading ? (
           <div className="empty">
-            {apartments.length === 0
-              ? "No apartments yet. Add one here or in the extension popup."
-              : "No buildings match those filters."}
+            {apartments.length === 0 ? "None" : "No matches"}
           </div>
         ) : (
           <div className="card-grid">
-            {visible.map((apartment) => (
-              <ApartmentCard key={apartment.id} apartment={apartment} filters={filters} />
+            {visibleMain.map((apartment) => (
+              <ApartmentCard key={apartment.id} {...cardProps(apartment)} />
             ))}
           </div>
         )}
       </section>
 
+      {favoriteUnits.length > 0 ? (
+        <section>
+          <div className="section-head">
+            <h2>★ Favorite units</h2>
+            <p>{favoriteUnits.length} unit{favoriteUnits.length === 1 ? "" : "s"}</p>
+          </div>
+          <div className="changed-rail">
+            {favoriteUnits.map((listing) => (
+              <ListingCard
+                key={`fav-unit-${listing.id}`}
+                listing={listing}
+                showBuilding
+                onSelectionChange={canManage ? (patch) => handleListingSelection(listing.id, patch) : undefined}
+                selectionBusy={listingSelectionBusy === listing.id}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {watchlistUnits.length > 0 ? (
+        <section>
+          <div className="section-head">
+            <h2>👁 Unit watchlist</h2>
+            <p>{watchlistUnits.length} unit{watchlistUnits.length === 1 ? "" : "s"}</p>
+          </div>
+          <div className="changed-rail">
+            {watchlistUnits.map((listing) => (
+              <ListingCard
+                key={`watch-unit-${listing.id}`}
+                listing={listing}
+                showBuilding
+                onSelectionChange={canManage ? (patch) => handleListingSelection(listing.id, patch) : undefined}
+                selectionBusy={listingSelectionBusy === listing.id}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section>
         <div className="section-head">
           <h2>All units</h2>
           <p>
-            {filteredListings.length} matching unit{filteredListings.length === 1 ? "" : "s"} · click a column to sort
+            {unitsMain.length} unit{unitsMain.length === 1 ? "" : "s"}
           </p>
         </div>
-        {filteredListings.length === 0 ? (
+        {unitsMain.length === 0 ? (
           <div className="empty">
-            {allListings.length === 0
-              ? source === "api" || source === "extension"
-                ? "No units yet. Open the extension, then Analyze an availability page."
-                : "No units yet."
-              : "No units match those filters."}
+            {allListings.length === 0 ? "None" : "No matches"}
           </div>
         ) : (
           <ListingsTable
-            listings={filteredListings}
+            listings={unitsMain}
             sortKey={filters.sort}
             sortDir={filters.sortDir}
             showBuilding
             onSort={(key) => setFilters(cycleSort(filters, key))}
+            onSelectionChange={canManage ? handleListingSelection : undefined}
+            selectionBusyId={listingSelectionBusy}
           />
         )}
       </section>
 
       {adding ? (
-        <AddApartmentModal
-          connected={source === "api" || source === "extension"}
-          onClose={() => setAdding(false)}
-          onAdd={addApartment}
-        />
+        <AddApartmentModal onClose={() => setAdding(false)} onAdd={addApartment} />
       ) : null}
     </Shell>
   );
