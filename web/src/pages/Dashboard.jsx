@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { listingMatchesFilters, isNewListing, isRecentlyChanged, sortListings } from "@shared/listingView.js";
 import { useApartments } from "../state/ApartmentContext.jsx";
 import { apartmentVisible } from "../lib/filters.js";
-import { formatRelativeTime } from "../lib/format.js";
+import { formatPrice, formatRelativeTime, listingTitle } from "../lib/format.js";
 import { cycleSort, usePersistentFilters } from "../hooks/usePersistentFilters.js";
 import Shell from "../components/Shell.jsx";
 import FilterBar from "../components/FilterBar.jsx";
@@ -42,6 +42,7 @@ export default function Dashboard() {
               ...listing,
               apartmentId: apartment.id,
               apartmentName: listing.apartmentName || apartment.name,
+              buildingProfile: listing.buildingProfile || apartment.buildingProfile || null,
             })),
         ),
         filters.sort,
@@ -66,6 +67,15 @@ export default function Dashboard() {
     .filter((listing) => isRecentlyChanged(listing))
     .sort((left, right) => Date.parse(right.lastSeen || 0) - Date.parse(left.lastSeen || 0))
     .slice(0, 6);
+
+  const bestMatches = useMemo(
+    () =>
+      filteredListings
+        .filter((listing) => listing.match?.configured && listing.match.qualifies)
+        .sort((left, right) => (right.match?.score || 0) - (left.match?.score || 0))
+        .slice(0, 5),
+    [filteredListings],
+  );
 
   return (
     <Shell
@@ -107,6 +117,32 @@ export default function Dashboard() {
       </section>
 
       <FilterBar filters={filters} onChange={setFilters} showSort />
+
+      {bestMatches.length > 0 ? (
+        <section>
+          <div className="section-head">
+            <h2>🔥 Best matches</h2>
+            <p>
+              Sorted by preference score · <Link to="/preferences">Edit preferences</Link>
+            </p>
+          </div>
+          <ol className="best-matches">
+            {bestMatches.map((listing) => (
+              <li key={listing.id || `${listing.apartmentId}-${listing.unit}`}>
+                <Link to={`/apartments/${listing.apartmentId}`}>
+                  <strong>
+                    {listing.match.score}%{listing.match.profileName ? ` · ${listing.match.profileName}` : ""} — {listing.apartmentName} {listing.unit ? `Unit ${listing.unit}` : listingTitle(listing)}
+                  </strong>
+                  <span>
+                    {formatPrice(listing.price)}
+                    {listing.sqft ? ` · ${listing.sqft.toLocaleString("en-US")} sqft` : ""}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
 
       {recent.length > 0 ? (
         <section>

@@ -6,6 +6,7 @@ import {
   deleteApartment,
   getAlertPrefs,
   getApartmentRow,
+  getUserPrefs,
   listApartmentRows,
   listChanges,
   listNotifications,
@@ -16,12 +17,15 @@ import {
   previousPricesFor,
   recordScrape,
   saveAlertPrefs,
+  saveUserPrefs,
   setMonitorState,
+  toMatchedListing,
   unreadNotificationCount,
 } from "./store.js";
-import { toApiListing, toApiScrapeRun } from "./serialize.js";
-import { isUuid, parseAlertPrefs, parseApartmentInput, parseMonitorState, parseScrapeInput } from "./validate.js";
+import { toApiScrapeRun } from "./serialize.js";
+import { isUuid, parseAlertPrefs, parseApartmentInput, parseMonitorState, parsePreferenceBundle, parseScrapeInput } from "./validate.js";
 import { getMonitor, schedulerStatus } from "./scheduler.js";
+import { listBuildingProfileHistory, reanalyzeBuilding, buildingProfilesFor } from "./buildingAnalyze.js";
 
 export const apartmentsRouter = express.Router();
 
@@ -71,13 +75,18 @@ apartmentsRouter.get("/:id/listings", async (req, res, next) => {
     const includeInactive = req.query.includeInactive === "1" || req.query.includeInactive === "true";
     const listings = await listingsForApartments([apartment.id], { includeInactive });
     const previous = await previousPricesFor(listings.map((row) => row.id));
+    const userPrefs = await getUserPrefs();
+    const profiles = await buildingProfilesFor([apartment.id]);
+    const buildingProfile = profiles.get(apartment.id) || null;
     res.json(
       listings.map((listing) => {
         const previousPrice = previous.get(listing.id);
-        return toApiListing(
+        return toMatchedListing(
           listing,
-          apartment.name,
+          apartment,
           previousPrice != null && previousPrice !== Number(listing.price) ? previousPrice : null,
+          userPrefs,
+          buildingProfile,
         );
       }),
     );
@@ -163,6 +172,27 @@ apartmentsRouter.get("/:id/changes", async (req, res, next) => {
   }
 });
 
+apartmentsRouter.post("/:id/building-profile/reanalyze", async (req, res, next) => {
+  try {
+    const apartment = await loadApartment(req.params.id);
+    const buildingProfile = await reanalyzeBuilding(apartment);
+    const fresh = await getApartmentRow(apartment.id);
+    const [saved] = await assembleApartments([fresh]);
+    res.json({ buildingProfile, apartment: saved });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apartmentsRouter.get("/:id/building-profile/history", async (req, res, next) => {
+  try {
+    const apartment = await loadApartment(req.params.id);
+    res.json(await listBuildingProfileHistory(apartment.id));
+  } catch (error) {
+    next(error);
+  }
+});
+
 export const notificationsRouter = express.Router();
 
 notificationsRouter.get("/", async (req, res, next) => {
@@ -238,6 +268,24 @@ export async function listChangesHandler(req, res, next) {
 export function schedulerStatusHandler(_req, res) {
   res.json({ ok: true, scheduler: schedulerStatus() });
 }
+
+export const preferencesRouter = express.Router();
+
+preferencesRouter.get("/", async (_req, res, next) => {
+  try {
+    res.json(await getUserPrefs());
+  } catch (error) {
+    next(error);
+  }
+});
+
+preferencesRouter.put("/", async (req, res, next) => {
+  try {
+    res.json(await saveUserPrefs(parsePreferenceBundle(req.body)));
+  } catch (error) {
+    next(error);
+  }
+});
 
 async function loadApartment(id) {
   if (!isUuid(id)) {

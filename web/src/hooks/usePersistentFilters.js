@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { DESC_SORT_KEYS } from "@shared/listingView.js";
 import { loadFilters, saveFilters } from "../lib/persist.js";
 
 export function usePersistentFilters() {
@@ -16,7 +17,7 @@ export function usePersistentFilters() {
 }
 
 export function cycleSort(filters, key) {
-  const defaultDir = key === "newest" || key === "changed" ? "desc" : "asc";
+  const defaultDir = DESC_SORT_KEYS.has(key) ? "desc" : "asc";
   const currentDir = filters.sort === key ? filters.sortDir || defaultDir : null;
   if (!currentDir) return { ...filters, sort: key, sortDir: defaultDir };
   return { ...filters, sort: key, sortDir: currentDir === "asc" ? "desc" : "asc" };

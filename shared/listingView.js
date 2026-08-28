@@ -52,6 +52,14 @@ export function listingMatchesFilters(listing, filters, now = Date.now()) {
   if (filters.availableBy) {
     if (!isAvailableBy(listing.availableDate, filters.availableBy)) return false;
   }
+  if (filters.minSafety != null && filters.minSafety !== "") {
+    const score = listing.buildingProfile?.safetyScore;
+    if (score == null || Number(score) < Number(filters.minSafety)) return false;
+  }
+  if (filters.minWalkability != null && filters.minWalkability !== "") {
+    const score = listing.buildingProfile?.walkabilityScore;
+    if (score == null || Number(score) < Number(filters.minWalkability)) return false;
+  }
   if (filters.newOnly && !isNewListing(listing, now)) return false;
   if (filters.priceDropsOnly && !isPriceDrop(listing)) return false;
   if (filters.query) {
@@ -61,13 +69,25 @@ export function listingMatchesFilters(listing, filters, now = Date.now()) {
   return true;
 }
 
+export const DESC_SORT_KEYS = new Set([
+  "newest",
+  "changed",
+  "safety",
+  "buildingAge",
+  "walkability",
+  "viewsSun",
+  "amenities",
+  "overall",
+  "match",
+]);
+
 export function sortListings(listings, sortKey = "unit", sortDir) {
   const key = sortKey || "unit";
-  const defaultDir = key === "newest" || key === "changed" ? "desc" : "asc";
+  const defaultDir = DESC_SORT_KEYS.has(key) ? "desc" : "asc";
   const dir = sortDir || defaultDir;
   const copy = [...listings].sort((left, right) => compareListings(left, right, key));
-  if (dir === "desc" && key !== "newest" && key !== "changed") copy.reverse();
-  if (dir === "asc" && (key === "newest" || key === "changed")) copy.reverse();
+  if (dir === "desc" && !DESC_SORT_KEYS.has(key)) copy.reverse();
+  if (dir === "asc" && DESC_SORT_KEYS.has(key)) copy.reverse();
   return copy;
 }
 
@@ -91,6 +111,15 @@ export function compareListings(left, right, key) {
       return String(left.apartmentName || "").localeCompare(String(right.apartmentName || ""), undefined, {
         sensitivity: "base",
       });
+    case "match":
+      return (right.match?.score ?? -1) - (left.match?.score ?? -1);
+    case "safety":
+    case "buildingAge":
+    case "walkability":
+    case "viewsSun":
+    case "amenities":
+    case "overall":
+      return (buildingScore(right, key) ?? -1) - (buildingScore(left, key) ?? -1);
     default:
       return String(left.unit || left.floorPlan || "").localeCompare(
         String(right.unit || right.floorPlan || ""),
@@ -98,6 +127,18 @@ export function compareListings(left, right, key) {
         { numeric: true, sensitivity: "base" },
       );
   }
+}
+
+function buildingScore(listing, key) {
+  const profile = listing?.buildingProfile;
+  if (!profile) return null;
+  if (key === "safety") return profile.safetyScore;
+  if (key === "buildingAge") return profile.buildingAgeScore;
+  if (key === "walkability") return profile.walkabilityScore;
+  if (key === "viewsSun") return profile.viewsSunScore;
+  if (key === "amenities") return profile.amenitiesScore;
+  if (key === "overall") return profile.overallScore;
+  return null;
 }
 
 export function listingSearchText(listing) {

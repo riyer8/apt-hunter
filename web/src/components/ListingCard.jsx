@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { isNewListing, isPriceDrop, priceDropAmount } from "@shared/listingView.js";
 import { formatAvailable, formatPrice, listingTitle, specLine } from "../lib/format.js";
+import MatchBadge, { MatchDetails } from "./MatchBadge.jsx";
+import BuildingScores, { BuildingNameLink } from "./BuildingScores.jsx";
 
 export default function ListingCard({ listing, showBuilding = false }) {
   const isNew = isNewListing(listing);
@@ -12,12 +14,18 @@ export default function ListingCard({ listing, showBuilding = false }) {
     <article className="listing-card">
       <div className="listing-card-head">
         <div>
-          <h3 className="listing-title">{listingTitle(listing)}</h3>
-          {showBuilding && listing.apartmentName ? (
-            <p className="listing-building">{listing.apartmentName}</p>
-          ) : null}
+          <h3 className="listing-title">
+            {showBuilding && listing.apartmentName ? (
+              <>
+                <BuildingNameLink listing={listing} /> — {listingTitle(listing)}
+              </>
+            ) : (
+              listingTitle(listing)
+            )}
+          </h3>
         </div>
-        <div>
+        <div className="listing-card-flags">
+          <MatchBadge match={listing.match} />
           {isNew ? <span className="badge badge-new">🆕 NEW</span> : null}{" "}
           {drop ? <span className="badge badge-drop">Price drop</span> : null}
         </div>
@@ -33,6 +41,8 @@ export default function ListingCard({ listing, showBuilding = false }) {
       <p className="listing-date">{formatAvailable(listing.availableDate)}</p>
       {listing.floorPlan ? <p className="listing-date">{listing.floorPlan}</p> : null}
       {dropAmount ? <p className="listing-date">Down ${dropAmount.toLocaleString("en-US")}</p> : null}
+      <MatchDetails match={listing.match} />
+      <BuildingScores profile={listing.buildingProfile} compact />
 
       <div className="listing-actions">
         {listing.listingUrl ? (

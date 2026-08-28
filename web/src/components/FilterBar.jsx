@@ -1,3 +1,5 @@
+import { DESC_SORT_KEYS } from "@shared/listingView.js";
+
 export default function FilterBar({ filters, onChange, showSort = false }) {
   const set = (key) => (event) => {
     const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
@@ -49,6 +51,22 @@ export default function FilterBar({ filters, onChange, showSort = false }) {
           <span>Available by</span>
           <input type="date" value={filters.availableBy} onChange={set("availableBy")} />
         </label>
+        <label className="field">
+          <span>Min safety</span>
+          <input type="number" min="0" max="10" step="0.1" placeholder="Any" value={filters.minSafety} onChange={set("minSafety")} />
+        </label>
+        <label className="field">
+          <span>Min walkability</span>
+          <input
+            type="number"
+            min="0"
+            max="10"
+            step="0.1"
+            placeholder="Any"
+            value={filters.minWalkability}
+            onChange={set("minWalkability")}
+          />
+        </label>
       </div>
 
       <div className="toggles">
@@ -67,17 +85,24 @@ export default function FilterBar({ filters, onChange, showSort = false }) {
               value={filters.sort}
               onChange={(event) => {
                 const sort = event.target.value;
-                const sortDir = sort === "newest" || sort === "changed" ? "desc" : "asc";
+                const sortDir = DESC_SORT_KEYS.has(sort) ? "desc" : "asc";
                 onChange({ ...filters, sort, sortDir });
               }}
             >
               <option value="unit">Unit</option>
-              <option value="price">Price</option>
+              <option value="price">Rent</option>
               <option value="beds">Bed / Bath</option>
               <option value="sqft">Square footage</option>
               <option value="availability">Availability date</option>
               <option value="newest">Newest</option>
               <option value="changed">Recently changed</option>
+              <option value="match">Match score</option>
+              <option value="safety">Safety</option>
+              <option value="buildingAge">Building Age</option>
+              <option value="walkability">Walkability</option>
+              <option value="viewsSun">Views/Sun</option>
+              <option value="amenities">Amenities</option>
+              <option value="overall">Overall building score</option>
             </select>
           </label>
         ) : null}

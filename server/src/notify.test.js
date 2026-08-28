@@ -44,6 +44,29 @@ describe("decideNotification", () => {
     assert.match(chrome.message, /Available Sep 20/);
   });
 
+  it("match-based alerts change NEW listing copy only when enabled", () => {
+    const match = { qualifies: true, score: 94 };
+    const off = decideNotification({
+      outcome: "SUCCESS",
+      change: { id: "chg-match-off", type: "NEW" },
+      listing,
+      prefs,
+      userPrefs: { matchAlerts: false },
+      match,
+    });
+    assert.match(off.notification.title, /NEW APARTMENT/);
+    const on = decideNotification({
+      outcome: "SUCCESS",
+      change: { id: "chg-match-on", type: "NEW" },
+      listing,
+      prefs,
+      userPrefs: { matchAlerts: true },
+      match,
+    });
+    assert.equal(on.notification.title, "🆕 NEW 94% MATCH");
+    assert.match(on.notification.body, /\$3,995 · 620 sqft/);
+  });
+
   it("2. a PRICE_DROP creates a Chrome notification", () => {
     const result = decideNotification({
       outcome: "SUCCESS",

@@ -1,3 +1,4 @@
+import { mergeFeatures, matchListingAgainstProfiles, normalizeFeatures } from "../../shared/match.js";
 import { listingIdentityKey } from "./identity.js";
 import { planScrape } from "./detectChanges.js";
 import {
@@ -8,10 +9,12 @@ import {
   toApiChange,
   toApiListing,
   toApiNotification,
+  toApiProfile,
   toApiScrapeRun,
 } from "./serialize.js";
 import { pool, query } from "./db.js";
 import { decideNotification } from "./notify.js";
+import { buildingProfilesFor, insertPendingBuildingProfile, queueBuildingAnalysis } from "./buildingAnalyze.js";
 
 const CHANGE_WINDOW_MS = 48 * 60 * 60 * 1000;
 const CHANGE_TYPES = new Set([
@@ -70,15 +73,19 @@ export async function assembleApartments(rows, options = {}) {
   const scrapeMeta = await scrapeMetaFor(apartmentIds);
   const changeCounts = await changeCountsFor(apartmentIds, new Date(Date.now() - CHANGE_WINDOW_MS).toISOString());
   const prefs = await alertPrefsFor(apartmentIds);
+  const userPrefs = await getUserPrefs();
+  const profiles = await buildingProfilesFor(apartmentIds);
 
   const byApartment = new Map();
   for (const listing of listings) {
     const apartment = rows.find((row) => row.id === listing.apartment_id);
     const previousPrice = previous.get(listing.id);
-    const serialized = toApiListing(
+    const serialized = toMatchedListing(
       listing,
-      apartment?.name,
+      apartment,
       previousPrice != null && previousPrice !== Number(listing.price) ? previousPrice : null,
+      userPrefs,
+      profiles.get(listing.apartment_id) || null,
     );
     const bucket = byApartment.get(listing.apartment_id) || [];
     bucket.push(serialized);
@@ -92,13 +99,45 @@ export async function assembleApartments(rows, options = {}) {
       lastScrapeStatus: scrapeMeta.get(row.id)?.lastScrapeStatus || null,
       changeSummary: changeCounts.get(row.id) || emptyChangeSummary(),
       alertPreferences: toApiAlertPrefs(prefs.get(row.id)),
+      features: mergeFeatures(row.features, {}),
+      buildingProfile: profiles.get(row.id) || null,
     }),
   );
+}
+
+export function toMatchedListing(listing, apartment, previousPrice, userPrefs, buildingProfile = null) {
+  const features = mergeFeatures(apartment?.features, listing.features);
+  const location = apartment?.location || null;
+  const match = matchListingAgainstProfiles(
+    {
+      price: listing.price,
+      bedrooms: listing.bedrooms,
+      bathrooms: listing.bathrooms,
+      sqft: listing.sqft,
+      availableDate: listing.available_date || listing.availableDate,
+      features,
+      location,
+    },
+    userPrefs?.profiles || userPrefs,
+  );
+  return toApiListing(listing, apartment?.name, previousPrice, {
+    features,
+    location,
+    match,
+    buildingProfile,
+  });
 }
 
 export async function createOrGetApartment({ name, url, canonicalUrl, location }) {
   const existing = await query("SELECT * FROM apartments WHERE canonical_url = $1", [canonicalUrl]);
   if (existing.rows[0]) {
+    const profile = await query("SELECT apartment_id FROM building_profiles WHERE apartment_id = $1", [
+      existing.rows[0].id,
+    ]);
+    if (!profile.rows[0]) {
+      await insertPendingBuildingProfile(existing.rows[0].id);
+      queueBuildingAnalysis(existing.rows[0]);
+    }
     return { apartment: existing.rows[0], created: false };
   }
 
@@ -109,6 +148,8 @@ export async function createOrGetApartment({ name, url, canonicalUrl, location }
     [name, url, canonicalUrl, location],
   );
   await ensureAlertPrefs(inserted.rows[0].id);
+  await insertPendingBuildingProfile(inserted.rows[0].id);
+  queueBuildingAnalysis(inserted.rows[0]);
   return { apartment: inserted.rows[0], created: true };
 }
 
@@ -184,6 +225,7 @@ export async function recordScrape(apartment, payload) {
     }
 
     const prefs = toApiAlertPrefs(await loadAlertPrefs(client, apartment.id));
+    const userPrefs = await getUserPrefs(client);
 
     for (const event of plan.events) {
       const listing = listingByKey.get(event.identityKey);
@@ -209,8 +251,10 @@ export async function recordScrape(apartment, payload) {
         await insertNotificationForChange(client, {
           change: insertedChange.rows[0],
           listing: { ...listing, apartmentName: apartment.name, apartmentId: apartment.id },
+          apartment,
           outcome: payload.outcome,
           prefs,
+          userPrefs,
         });
       }
     }
@@ -242,6 +286,7 @@ async function upsertListing(client, apartmentId, identityKey, listing, nowIso) 
   );
   const current = existing.rows[0];
   const key = identityKey || listingIdentityKey(listing);
+  const features = normalizeFeatures(listing.features, current?.features);
 
   const values = [
     listing.unit ?? null,
@@ -254,6 +299,7 @@ async function upsertListing(client, apartmentId, identityKey, listing, nowIso) 
     listing.listingUrl ?? listing.listing_url ?? null,
     listing.confidence ?? null,
     listing.source ?? null,
+    JSON.stringify(features),
   ];
 
   if (!current) {
@@ -261,10 +307,10 @@ async function upsertListing(client, apartmentId, identityKey, listing, nowIso) 
       `INSERT INTO listings (
          apartment_id, identity_key, unit, price, bedrooms, bathrooms, sqft,
          available_date, floor_plan, listing_url, first_seen_at, last_seen_at,
-         is_active, missing_success_count, confidence, source
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true, 0, $13, $14)
+         is_active, missing_success_count, confidence, source, features
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true, 0, $13, $14, $15::jsonb)
        RETURNING *`,
-      [apartmentId, key, ...values.slice(0, 8), firstSeen, lastSeen, values[8], values[9]],
+      [apartmentId, key, ...values.slice(0, 8), firstSeen, lastSeen, values[8], values[9], values[10]],
     );
     await insertSnapshot(client, inserted.rows[0].id, inserted.rows[0].price, inserted.rows[0].available_date, lastSeen);
     return inserted.rows[0];
@@ -287,10 +333,11 @@ async function upsertListing(client, apartmentId, identityKey, listing, nowIso) 
        is_active = true,
        missing_success_count = 0,
        confidence = $11,
-       source = $12
+       source = $12,
+       features = $13::jsonb
      WHERE id = $1
      RETURNING *`,
-    [current.id, ...values.slice(0, 8), lastSeen, values[8], values[9]],
+    [current.id, ...values.slice(0, 8), lastSeen, values[8], values[9], values[10]],
   );
 
   if (priceChanged || dateChanged) {
@@ -457,6 +504,102 @@ export async function updateSchedule(id, patch) {
   );
 }
 
+export async function ensureUserPrefs(client = null) {
+  const run = client ? client.query.bind(client) : query;
+  await run(`INSERT INTO user_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING`);
+  await run(
+    `INSERT INTO preference_profiles (name, sort_order)
+     SELECT 'Search 1', 0
+     WHERE NOT EXISTS (SELECT 1 FROM preference_profiles)`,
+  );
+}
+
+export async function getUserPrefs(client = null) {
+  await ensureUserPrefs(client);
+  const run = client ? client.query.bind(client) : query;
+  const settings = await run("SELECT * FROM user_settings WHERE id = 'default'");
+  const profiles = await run("SELECT * FROM preference_profiles ORDER BY sort_order ASC, created_at ASC");
+  return {
+    matchAlerts: settings.rows[0]?.match_alerts === true,
+    profiles: profiles.rows.map(toApiProfile),
+  };
+}
+
+export async function saveUserPrefs(bundle) {
+  const profiles = Array.isArray(bundle?.profiles) ? bundle.profiles : [];
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`INSERT INTO user_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING`);
+    await client.query(`UPDATE user_settings SET match_alerts = $1, updated_at = now() WHERE id = 'default'`, [
+      bundle?.matchAlerts === true,
+    ]);
+
+    const kept = [];
+    for (const [index, profile] of profiles.entries()) {
+      const values = profileValues(profile, index);
+      if (profile.id) {
+        const updated = await client.query(
+          `UPDATE preference_profiles SET
+             name = $2, sort_order = $3, max_rent = $4, bedrooms = $5::jsonb, min_bathrooms = $6,
+             min_sqft = $7, max_sqft = $8, move_in_earliest = $9, move_in_latest = $10,
+             required_features = $11::jsonb, preferred_features = $12::jsonb,
+             preferred_neighborhoods = $13::jsonb, hard = $14::jsonb, updated_at = now()
+           WHERE id = $1
+           RETURNING id`,
+          [profile.id, ...values],
+        );
+        if (updated.rows[0]) {
+          kept.push(updated.rows[0].id);
+          continue;
+        }
+      }
+      const inserted = await client.query(
+        `INSERT INTO preference_profiles (
+           name, sort_order, max_rent, bedrooms, min_bathrooms, min_sqft, max_sqft,
+           move_in_earliest, move_in_latest, required_features, preferred_features,
+           preferred_neighborhoods, hard
+         ) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb)
+         RETURNING id`,
+        values,
+      );
+      kept.push(inserted.rows[0].id);
+    }
+
+    if (kept.length) {
+      await client.query(`DELETE FROM preference_profiles WHERE NOT (id = ANY($1::uuid[]))`, [kept]);
+    } else {
+      await client.query("DELETE FROM preference_profiles");
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+  return getUserPrefs();
+}
+
+function profileValues(profile, index) {
+  return [
+    profile.name || `Search ${index + 1}`,
+    index,
+    profile.maxRent,
+    JSON.stringify(profile.bedrooms || []),
+    profile.minBathrooms,
+    profile.minSqft,
+    profile.maxSqft,
+    profile.moveInEarliest || null,
+    profile.moveInLatest || null,
+    JSON.stringify(profile.requiredFeatures || []),
+    JSON.stringify(profile.preferredFeatures || []),
+    JSON.stringify(profile.preferredNeighborhoods || []),
+    JSON.stringify(profile.hard || {}),
+  ];
+}
+
 export async function ensureAlertPrefs(apartmentId, client = null) {
   const run = client ? client.query.bind(client) : query;
   await run(
@@ -518,8 +661,20 @@ export async function saveAlertPrefs(apartmentId, prefs) {
   return toApiAlertPrefs(result.rows[0]);
 }
 
-async function insertNotificationForChange(client, { change, listing, outcome, prefs }) {
+async function insertNotificationForChange(client, { change, listing, apartment, outcome, prefs, userPrefs }) {
   const already = await client.query("SELECT change_id FROM notifications WHERE change_id = $1", [change.id]);
+  const features = mergeFeatures(apartment?.features, listing.features);
+  const match = matchListingAgainstProfiles(
+    {
+      ...listing,
+      availableDate: listing.availableDate || listing.available_date,
+      listingUrl: listing.listingUrl || listing.listing_url,
+      floorPlan: listing.floorPlan || listing.floor_plan,
+      features,
+      location: apartment?.location,
+    },
+    userPrefs?.profiles || userPrefs,
+  );
   const decided = decideNotification({
     outcome,
     change: { id: change.id, type: change.change_type, apartmentId: change.apartment_id },
@@ -530,6 +685,8 @@ async function insertNotificationForChange(client, { change, listing, outcome, p
       floorPlan: listing.floorPlan || listing.floor_plan,
     },
     prefs,
+    userPrefs,
+    match,
     alreadyNotifiedChangeIds: new Set(already.rows.map((row) => row.change_id)),
     dashboardOrigin: process.env.DASHBOARD_URL || "http://localhost:5173",
   });

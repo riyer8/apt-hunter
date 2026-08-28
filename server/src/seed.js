@@ -1,5 +1,7 @@
 import { migrate, pool, query } from "./db.js";
 import { decideNotification } from "./notify.js";
+import { demoAvalonProfile, demoGeorgeProfile } from "../../shared/demoBuildingProfiles.js";
+import { saveBuildingProfile } from "./buildingAnalyze.js";
 
 const GEORGE_ID = "11111111-1111-4111-8111-111111111111";
 const AVALON_ID = "22222222-2222-4222-8222-222222222222";
@@ -18,6 +20,39 @@ await query(
       'https://www.avaloncommunities.com/california/san-francisco-apartments/avalon-dogpatch', 'Dogpatch, San Francisco',
       'success', now() - interval '22 minutes', now() - interval '4 days', 'active', now() + interval '30 minutes')`,
   [GEORGE_ID, AVALON_ID],
+);
+
+await query(
+  `UPDATE apartments SET features = $2::jsonb WHERE id = $1`,
+  [
+    GEORGE_ID,
+    JSON.stringify({ gym: "YES", elevator: "YES", pool: "NO", parking: "UNKNOWN", laundry: "UNKNOWN" }),
+  ],
+);
+await query(
+  `UPDATE apartments SET features = $2::jsonb WHERE id = $1`,
+  [
+    AVALON_ID,
+    JSON.stringify({ gym: "YES", elevator: "YES", pool: "YES", parking: "YES", laundry: "UNKNOWN" }),
+  ],
+);
+
+await query("DELETE FROM preference_profiles");
+await query(
+  `INSERT INTO preference_profiles (
+     name, sort_order, max_rent, bedrooms, min_bathrooms, min_sqft, move_in_latest,
+     preferred_features, preferred_neighborhoods, hard
+   ) VALUES
+     ('Studio', 0, 4000, '[0]'::jsonb, 1, 400, '2026-10-31',
+      '["laundry","gym"]'::jsonb, '["SoMa","Dogpatch"]'::jsonb,
+      '{"maxRent":true,"bedrooms":true,"bathrooms":true,"minSqft":true,"maxSqft":false,"moveIn":true,"requiredFeatures":true,"neighborhoods":false}'::jsonb),
+     ('2 bed 2 bath', 1, 5600, '[2]'::jsonb, 2, 800, '2026-10-31',
+      '["laundry","parking","gym"]'::jsonb, '["SoMa","Dogpatch"]'::jsonb,
+      '{"maxRent":true,"bedrooms":true,"bathrooms":true,"minSqft":true,"maxSqft":false,"moveIn":true,"requiredFeatures":true,"neighborhoods":false}'::jsonb)`,
+);
+await query(
+  `INSERT INTO user_settings (id, match_alerts) VALUES ('default', false)
+   ON CONFLICT (id) DO UPDATE SET match_alerts = false, updated_at = now()`,
 );
 
 const georgeUnits = [
@@ -272,6 +307,9 @@ await query(
      ($2, now() - interval '22 minutes', now() - interval '22 minutes', 'success', 'Embedded JSON', 3, NULL)`,
   [GEORGE_ID, AVALON_ID],
 );
+
+await saveBuildingProfile(GEORGE_ID, demoGeorgeProfile(2026));
+await saveBuildingProfile(AVALON_ID, demoAvalonProfile(2026));
 
 console.log("Seeded The George and Avalon Dogpatch.");
 await pool.end();

@@ -38,6 +38,7 @@ cp .env.example .env   # first time
 npm install
 npx playwright install chromium   # if Chrome is not installed
 npm run seed
+npm run reset          # wipe all data for a fresh start (no demo buildings)
 npm run dev
 ```
 
@@ -56,8 +57,31 @@ That covers due vs paused, Scrape now, overlap locks, retries, failed-scrape lis
 
 To watch a live scrape: **Scrape now** on a building whose availability URL loads in a normal browser. Check `GET /apartments/:id/scrape-history` or the apartment page.
 
+## Building intelligence
+
+Each building is researched **once**, then every unit reuses that Building Profile. New listings, price changes, and scrapes do not call the AI again.
+
+Put `OPENAI_API_KEY` in `server/.env` (optional `OPENAI_MODEL=gpt-4o-mini`). If the key is missing, the profile is stored as skipped until you click **Re-analyze Building** on the building page.
+
+```bash
+# server/.env
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+```
+
+Do not commit `.env`. Seed data for The George and Avalon Dogpatch includes a demo profile so the dashboard works before you add a key.
+
 ## Chrome notifications
 
 Confirmed `SUCCESS` change events can create an in-app bell item and a Chrome notification. REMOVED listings do not notify. Set preferences per building on its page.
 
 Reload the unpacked extension after this update (it now uses the `notifications` and `alarms` permissions). Keep the API running so the service worker can poll for pending alerts.
+
+## Apartment preferences
+
+Open **Preferences** in the dashboard. You can add more than one search (for example a studio hunt and a 2-bed hunt). A listing qualifies if it fits any of them. Scores are rule-based (no AI). Hard requirements must pass; UNKNOWN amenities are not treated as no.
+
+```bash
+cd server
+npm test
+```

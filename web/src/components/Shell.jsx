@@ -24,6 +24,7 @@ export default function Shell({ children, action, source }) {
               Dashboard
             </NavLink>
             <NavLink to="/changes">Recent changes</NavLink>
+            <NavLink to="/preferences">Preferences</NavLink>
           </nav>
         </div>
         <div className="topbar-right">

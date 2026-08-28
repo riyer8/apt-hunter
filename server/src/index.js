@@ -1,8 +1,9 @@
 import cors from "cors";
 import express from "express";
 import { migrate } from "./db.js";
-import { apartmentsRouter, listChangesHandler, notificationsRouter, schedulerStatusHandler } from "./routes.js";
+import { apartmentsRouter, listChangesHandler, notificationsRouter, preferencesRouter, schedulerStatusHandler } from "./routes.js";
 import { startScheduler } from "./scheduler.js";
+import { backfillMissingBuildingProfiles } from "./buildingAnalyze.js";
 
 const app = express();
 const port = Number(process.env.PORT) || 8787;
@@ -16,6 +17,7 @@ app.get("/health", (_req, res) => {
 
 app.get("/changes", listChangesHandler);
 app.use("/notifications", notificationsRouter);
+app.use("/preferences", preferencesRouter);
 
 app.use("/apartments", apartmentsRouter);
 
@@ -27,6 +29,9 @@ app.use((error, _req, res, _next) => {
 });
 
 await migrate();
+backfillMissingBuildingProfiles().catch((error) => {
+  console.error("Building profile backfill failed:", error.message);
+});
 startScheduler();
 
 app.listen(port, () => {

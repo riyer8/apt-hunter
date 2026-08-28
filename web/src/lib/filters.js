@@ -8,6 +8,8 @@ export const EMPTY_FILTERS = {
   bedrooms: "",
   bathrooms: "",
   availableBy: "",
+  minSafety: "",
+  minWalkability: "",
   newOnly: false,
   priceDropsOnly: false,
   sort: "unit",
@@ -22,6 +24,8 @@ export function hasListingFilters(filters) {
       filters.bedrooms !== "" ||
       filters.bathrooms !== "" ||
       filters.availableBy ||
+      filters.minSafety ||
+      filters.minWalkability ||
       filters.newOnly ||
       filters.priceDropsOnly,
   );

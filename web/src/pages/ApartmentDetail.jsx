@@ -11,11 +11,12 @@ import Shell from "../components/Shell.jsx";
 import FilterBar from "../components/FilterBar.jsx";
 import ListingsTable from "../components/ListingsTable.jsx";
 import AlertPrefsForm from "../components/AlertPrefsForm.jsx";
+import BuildingProfilePanel from "../components/BuildingProfilePanel.jsx";
 
 export default function ApartmentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { apartments, loading, source, removeApartment, setMonitorState, scrapeNow } = useApartments();
+  const { apartments, loading, source, removeApartment, setMonitorState, scrapeNow, reanalyzeBuilding } = useApartments();
   const [filters, setFilters] = usePersistentFilters();
   const [history, setHistory] = useState([]);
   const [busy, setBusy] = useState("");
@@ -137,6 +138,13 @@ export default function ApartmentDetail() {
           {apartment.lastError && apartment.consecutiveFailures > 0 ? (
             <p className="error">{apartment.lastError}</p>
           ) : null}
+
+          <BuildingProfilePanel
+            apartment={apartment}
+            source={source}
+            busy={busy === "reanalyze"}
+            onReanalyze={() => run("reanalyze", () => reanalyzeBuilding(apartment.id))}
+          />
 
           {summary ? (
             <dl className="change-stats" style={{ marginBottom: 24 }}>

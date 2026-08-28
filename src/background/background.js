@@ -248,10 +248,17 @@ async function getOrOpenTab(url) {
   const tabs = await chrome.tabs.query({});
   const existing = tabs.find((tab) => tab.url && urlsMatch(tab.url, url));
   if (existing?.id != null) {
+    if (existing.discarded) {
+      await chrome.tabs.reload(existing.id).catch(() => {});
+    }
+    chrome.tabs.update(existing.id, { autoDiscardable: false }).catch(() => {});
     return { tabId: existing.id, created: false };
   }
 
   const tab = await chrome.tabs.create({ url, active: false });
+  if (tab.id != null) {
+    chrome.tabs.update(tab.id, { autoDiscardable: false }).catch(() => {});
+  }
   return { tabId: tab.id, created: true };
 }
 
@@ -318,24 +325,65 @@ function statusFromOutcome(outcome) {
   return STATUS.FAILED;
 }
 
+function isHttpUrl(url) {
+  return /^https?:/i.test(url || "");
+}
+
+async function isTabDocumentReady(tabId) {
+  const tab = await chrome.tabs.get(tabId);
+  // about:blank reports complete before navigation commits. Ignore it.
+  if (!isHttpUrl(tab.url)) return false;
+
+  try {
+    const injected = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => document.readyState,
+    });
+    const readyState = injected?.[0]?.result;
+    // Match the backend scraper: DOMContentLoaded, not window load.
+    // Marketing widgets (Vimeo, Maps, chat) often prevent tab status "complete".
+    return readyState === "interactive" || readyState === "complete";
+  } catch {
+    return tab.status === "complete";
+  }
+}
+
 function waitForTabLoad(tabId) {
   return new Promise((resolve, reject) => {
     let settled = false;
+    let pollTimer;
 
     const finish = (error) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      clearTimeout(pollTimer);
       chrome.tabs.onUpdated.removeListener(onUpdated);
       chrome.tabs.onRemoved.removeListener(onRemoved);
       if (error) reject(error);
       else resolve();
     };
 
-    const timer = setTimeout(() => finish(new Error("Timed out loading the apartment page.")), LOAD_TIMEOUT_MS);
+    const timer = setTimeout(() => {
+      isTabDocumentReady(tabId)
+        .then((ready) => {
+          if (ready) finish();
+          else finish(new Error("Timed out loading the apartment page."));
+        })
+        .catch(() => finish(new Error("Timed out loading the apartment page.")));
+    }, LOAD_TIMEOUT_MS);
 
-    const onUpdated = (id, info) => {
-      if (id === tabId && info.status === "complete") finish();
+    const checkReady = () => {
+      if (settled) return;
+      isTabDocumentReady(tabId)
+        .then((ready) => {
+          if (ready) finish();
+        })
+        .catch((error) => finish(error));
+    };
+
+    const onUpdated = (id) => {
+      if (id === tabId) checkReady();
     };
 
     const onRemoved = (id) => {
@@ -344,14 +392,16 @@ function waitForTabLoad(tabId) {
 
     chrome.tabs.onUpdated.addListener(onUpdated);
     chrome.tabs.onRemoved.addListener(onRemoved);
+    checkReady();
 
-    chrome.tabs.get(tabId).then((tab) => {
-      if (chrome.runtime.lastError) {
-        finish(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      if (tab.status === "complete") finish();
-    }).catch((error) => finish(error));
+    const poll = () => {
+      if (settled) return;
+      pollTimer = setTimeout(() => {
+        checkReady();
+        poll();
+      }, 250);
+    };
+    poll();
   });
 }
 

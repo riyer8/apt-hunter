@@ -3,6 +3,7 @@ import { apartmentChangeSummary } from "../lib/changes.js";
 import { formatRelativeTime, formatUntil } from "../lib/format.js";
 import { matchingListings } from "../lib/filters.js";
 import { changeCount, monitorMeta } from "../lib/status.js";
+import { OverallScore } from "./BuildingScores.jsx";
 
 export default function ApartmentCard({ apartment, filters }) {
   const listings = matchingListings(apartment, filters);
@@ -14,7 +15,9 @@ export default function ApartmentCard({ apartment, filters }) {
     <article className="apt-card">
       <div className="apt-card-top">
         <div>
-          <h2 className="apt-name">{apartment.name}</h2>
+          <h2 className="apt-name">
+            <Link to={`/apartments/${apartment.id}`}>{apartment.name}</Link>
+          </h2>
           {apartment.location ? <p className="apt-location">{apartment.location}</p> : null}
         </div>
         <span className={`status ${monitor.tone}`}>
@@ -32,6 +35,11 @@ export default function ApartmentCard({ apartment, filters }) {
           {listings.length} listing{listings.length === 1 ? "" : "s"}
           {changes ? ` · ${changes} change${changes === 1 ? "" : "s"}` : ""}
         </span>
+        {apartment.buildingProfile ? (
+          <span>
+            Overall <OverallScore profile={apartment.buildingProfile} />
+          </span>
+        ) : null}
       </div>
 
       <div className="apt-card-footer">

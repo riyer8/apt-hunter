@@ -85,6 +85,100 @@ export function parseScrapeInput(body) {
   };
 }
 
+export function parseUserPrefs(body) {
+  const bedrooms = Array.isArray(body?.bedrooms)
+    ? body.bedrooms.map(Number).filter((value) => [0, 1, 2, 3].includes(value))
+    : [];
+  const features = (list) =>
+    (Array.isArray(list) ? list : [])
+      .map((item) => String(item))
+      .filter((item) =>
+        [
+          "laundry",
+          "parking",
+          "balcony",
+          "gym",
+          "pool",
+          "airConditioning",
+          "dishwasher",
+          "elevator",
+          "furnished",
+        ].includes(item),
+      );
+  const neighborhoods = (Array.isArray(body?.preferredNeighborhoods) ? body.preferredNeighborhoods : [])
+    .map((item) => String(item).trim())
+    .filter(Boolean)
+    .slice(0, 20);
+  const hard = body?.hard && typeof body.hard === "object" ? body.hard : {};
+
+  return {
+    maxRent: emptyNumber(body?.maxRent),
+    bedrooms,
+    minBathrooms: emptyNumber(body?.minBathrooms),
+    minSqft: emptyNumber(body?.minSqft),
+    maxSqft: emptyNumber(body?.maxSqft),
+    moveInEarliest: body?.moveInEarliest || null,
+    moveInLatest: body?.moveInLatest || null,
+    requiredFeatures: features(body?.requiredFeatures),
+    preferredFeatures: features(body?.preferredFeatures).filter(
+      (id) => !features(body?.requiredFeatures).includes(id),
+    ),
+    preferredNeighborhoods: neighborhoods,
+    hard: {
+      maxRent: hard.maxRent !== false,
+      bedrooms: hard.bedrooms !== false,
+      bathrooms: hard.bathrooms !== false,
+      minSqft: hard.minSqft !== false,
+      maxSqft: hard.maxSqft === true,
+      moveIn: hard.moveIn !== false,
+      requiredFeatures: hard.requiredFeatures !== false,
+      neighborhoods: hard.neighborhoods === true,
+    },
+    matchAlerts: body?.matchAlerts === true,
+  };
+}
+
+export function parseProfile(body, index = 0) {
+  const parsed = parseUserPrefs(body);
+  const name = String(body?.name || `Search ${index + 1}`)
+    .trim()
+    .slice(0, 80);
+  return {
+    id: isUuid(body?.id) ? body.id : null,
+    name: name || `Search ${index + 1}`,
+    maxRent: parsed.maxRent,
+    bedrooms: parsed.bedrooms,
+    minBathrooms: parsed.minBathrooms,
+    minSqft: parsed.minSqft,
+    maxSqft: parsed.maxSqft,
+    moveInEarliest: parsed.moveInEarliest,
+    moveInLatest: parsed.moveInLatest,
+    requiredFeatures: parsed.requiredFeatures,
+    preferredFeatures: parsed.preferredFeatures,
+    preferredNeighborhoods: parsed.preferredNeighborhoods,
+    hard: parsed.hard,
+  };
+}
+
+export function parsePreferenceBundle(body) {
+  if (Array.isArray(body?.profiles)) {
+    return {
+      matchAlerts: body.matchAlerts === true,
+      profiles: body.profiles.filter(Boolean).slice(0, 12).map((item, index) => parseProfile(item, index)),
+    };
+  }
+  return {
+    matchAlerts: body?.matchAlerts === true,
+    profiles: [parseProfile(body || {}, 0)],
+  };
+}
+
+function emptyNumber(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 export function parseAlertPrefs(body) {
   return {
     newListings: body?.newListings !== false,

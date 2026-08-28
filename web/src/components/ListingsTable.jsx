@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { DESC_SORT_KEYS } from "@shared/listingView.js";
 import { isNewListing, isPriceDrop } from "@shared/listingView.js";
 import {
   formatAvailableShort,
@@ -6,10 +7,14 @@ import {
   formatPriceShort,
   listingTitle,
 } from "../lib/format.js";
+import MatchBadge from "./MatchBadge.jsx";
+import { OverallScore } from "./BuildingScores.jsx";
 
 const COLUMNS = [
   { key: "building", label: "Building" },
   { key: "unit", label: "Unit" },
+  { key: "match", label: "Match", numeric: true },
+  { key: "overall", label: "Bldg score", numeric: true },
   { key: "price", label: "Price", numeric: true },
   { key: "beds", label: "Bed / Bath", numeric: true },
   { key: "sqft", label: "Sqft", numeric: true },
@@ -24,7 +29,7 @@ export default function ListingsTable({
   showBuilding = false,
 }) {
   const columns = COLUMNS.filter((column) => showBuilding || column.key !== "building");
-  const resolvedDir = sortDir || (sortKey === "newest" || sortKey === "changed" ? "desc" : "asc");
+  const resolvedDir = sortDir || (DESC_SORT_KEYS.has(sortKey) ? "desc" : "asc");
 
   return (
     <div className="listings-table-wrap">
@@ -76,6 +81,12 @@ export default function ListingsTable({
                   {unit}
                   {isNew ? <span className="badge badge-new">NEW</span> : null}
                   {drop ? <span className="badge badge-drop">Drop</span> : null}
+                </td>
+                <td className="num">
+                  <MatchBadge match={listing.match} />
+                </td>
+                <td className="num">
+                  <OverallScore profile={listing.buildingProfile} />
                 </td>
                 <td className="num">
                   {formatPriceShort(listing.price)}

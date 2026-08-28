@@ -57,6 +57,8 @@ cp server/.env.example server/.env
 | `SCRAPE_RETRY_BACKOFF_MS` | `server/.env` | Backoff delays, default `120000,480000` |
 | `SCHEDULER_ENABLED` | `server/.env` | Set `false` to run the API without the timer. Scrape Now still works. |
 | `VITE_API_URL` | website (optional) | API origin, default `http://127.0.0.1:8787` |
+| `OPENAI_API_KEY` | `server/.env` | Used once per building for Building Profile research. Leave empty to skip until you click Re-analyze. |
+| `OPENAI_MODEL` | `server/.env` | Default `gpt-4o-mini` |
 
 The frontend and extension never receive database credentials.
 
@@ -66,7 +68,8 @@ The frontend and extension never receive database credentials.
 cd server
 npm install
 cp .env.example .env   # first time only
-npm run seed           # first time, or to reset demo data
+npm run seed           # first time, or to load demo data
+npm run reset          # wipe all buildings, listings, notifications, and preference searches
 npm run dev
 ```
 
@@ -123,6 +126,10 @@ All JSON uses the existing dashboard listing/apartment shape (`id`, `url`, `stat
 | `POST` | `/notifications/read-all` | Mark all read |
 | `POST` | `/notifications/:id/read` | Mark one read |
 | `POST` | `/notifications/:id/deliver` | Claim a pending Chrome toast (idempotent) |
+| `GET` | `/preferences` | User apartment preferences used for matching |
+| `PUT` | `/preferences` | Replace apartment preferences; listing match scores recalculate |
+| `POST` | `/apartments/:id/building-profile/reanalyze` | Manually rebuild the Building Profile (new `analysis_version`; previous snapshot stored) |
+| `GET` | `/apartments/:id/building-profile/history` | Previous building analyses |
 
 `POST /apartments/:id/scrape` stores results (from the extension or tests). `POST /apartments/:id/scrape-now` opens the page on the server.
 
@@ -133,6 +140,16 @@ Apartment payloads include `monitorState`, `nextScrapeAt`, `consecutiveFailures`
 Notifications are created only from **SUCCESS** scrape change events (`NEW`, `PRICE_DROP`, `PRICE_INCREASE`, `AVAILABILITY_CHANGED`). `REMOVED` and `FAILED`/`PARTIAL` scrapes never notify. Each `listing_changes.id` can create at most one row (`UNIQUE (change_id)`).
 
 The API stores history and pending delivery. The Chrome extension (and the open dashboard, if permission is granted) claims a pending row with `POST /notifications/:id/deliver` and shows a browser toast. Email/SMS/Discord are not implemented.
+
+## Matching
+
+`GET /preferences` returns `{ profiles, matchAlerts }`. Each profile is a named search (studio vs 2-bed, etc.). A listing qualifies if it fits any profile; the badge uses the best score. `PUT /preferences` replaces the profile list. Turn on `matchAlerts` to put the score in new-listing Chrome notification titles.
+
+## Building profiles
+
+A `building_profiles` row is created the first time a building is added. The API fetches the official page, asks OpenAI for facts vs judgments, then stores scores. Later listings inherit that row. Scrapes never trigger another research pass. Click **Re-analyze Building** to write history and bump `analysis_version`.
+
+Facts (`year_built`, amenity list, optional Walk Score) stay separate from AI scores. Building Age score is `10 − age × 0.12` from a year that actually appears in gathered source text. Overall score is a weighted average that **skips** null categories instead of treating them as zero.
 
 ## Scheduling
 

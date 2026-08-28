@@ -53,6 +53,8 @@ export function decideNotification({
   change,
   listing,
   prefs = DEFAULT_ALERT_PREFS,
+  userPrefs = null,
+  match = null,
   alreadyNotifiedChangeIds = new Set(),
   dashboardOrigin = "http://localhost:5173",
 }) {
@@ -87,7 +89,7 @@ export function decideNotification({
   return {
     notify: true,
     reason: null,
-    notification: buildNotificationRecord({ type, change, listing, dashboardOrigin }),
+    notification: buildNotificationRecord({ type, change, listing, dashboardOrigin, userPrefs, match }),
   };
 }
 
@@ -117,32 +119,52 @@ export function listingMatchesAlertFilters(listing, prefs = {}) {
   return true;
 }
 
-export function buildNotificationRecord({ type, change, listing, dashboardOrigin }) {
+export function buildNotificationRecord({ type, change, listing, dashboardOrigin, userPrefs, match }) {
   const copy = TYPE_COPY[type];
   const apartmentName = listing.apartmentName || listing.apartment_name || "Apartment";
   const unit = listing.unit ? `Unit ${listing.unit}` : listing.floorPlan || listing.floor_plan || "New listing";
   const listingUrl = listing.listingUrl || listing.listing_url || null;
   const apartmentId = listing.apartmentId || listing.apartment_id || change?.apartmentId || change?.apartment_id;
   const clickUrl = listingUrl || `${String(dashboardOrigin || "http://localhost:5173").replace(/\/$/, "")}/apartments/${apartmentId}`;
+  const useMatch =
+    userPrefs?.matchAlerts === true &&
+    type === NOTIFY_TYPES.NEW_LISTING &&
+    match?.qualifies === true &&
+    match.score != null;
 
   return {
     changeId: change?.id || change?.changeId || null,
     apartmentId,
     listingId: listing.id || listing.listing_id || null,
     notificationType: type,
-    title: `${copy.emoji} ${copy.title}`,
-    body: [
-      `${apartmentName} — ${unit}`,
-      formatPriceLine(listing.price),
-      specLine(listing),
-      formatAvailableLine(listing.availableDate || listing.available_date),
-    ]
-      .filter(Boolean)
-      .join("\n"),
+    title: useMatch
+      ? match.profileName
+        ? `🆕 NEW ${match.score}% MATCH · ${match.profileName}`
+        : `🆕 NEW ${match.score}% MATCH`
+      : `${copy.emoji} ${copy.title}`,
+    body: useMatch
+      ? [
+          `${apartmentName} — ${unit}`,
+          [formatPriceCompact(listing.price), listing.sqft != null ? `${Number(listing.sqft).toLocaleString("en-US")} sqft` : null]
+            .filter(Boolean)
+            .join(" · "),
+          formatAvailableLine(listing.availableDate || listing.available_date),
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : [
+          `${apartmentName} — ${unit}`,
+          formatPriceLine(listing.price),
+          specLine(listing),
+          formatAvailableLine(listing.availableDate || listing.available_date),
+        ]
+          .filter(Boolean)
+          .join("\n"),
     listingUrl,
     clickUrl,
     bellEmoji: copy.bell,
     deliveryStatus: "pending",
+    matchScore: useMatch ? match.score : null,
   };
 }
 
@@ -172,6 +194,11 @@ export function browserPermissionDecision(permission, { asked = false } = {}) {
 function formatPriceLine(price) {
   if (price == null || price === "") return null;
   return `$${Number(price).toLocaleString("en-US")}/mo`;
+}
+
+function formatPriceCompact(price) {
+  if (price == null || price === "") return null;
+  return `$${Number(price).toLocaleString("en-US")}`;
 }
 
 function specLine(listing) {

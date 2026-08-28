@@ -114,3 +114,105 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE INDEX IF NOT EXISTS notifications_created_at_idx ON notifications (created_at DESC);
 CREATE INDEX IF NOT EXISTS notifications_unread_idx ON notifications (read_at, created_at DESC);
+
+ALTER TABLE apartments ADD COLUMN IF NOT EXISTS features JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS features JSONB NOT NULL DEFAULT '{}';
+
+CREATE TABLE IF NOT EXISTS user_preferences (
+  id TEXT PRIMARY KEY DEFAULT 'default',
+  max_rent INTEGER,
+  bedrooms JSONB NOT NULL DEFAULT '[]',
+  min_bathrooms NUMERIC,
+  min_sqft INTEGER,
+  max_sqft INTEGER,
+  move_in_earliest TEXT,
+  move_in_latest TEXT,
+  required_features JSONB NOT NULL DEFAULT '[]',
+  preferred_features JSONB NOT NULL DEFAULT '[]',
+  preferred_neighborhoods JSONB NOT NULL DEFAULT '[]',
+  hard JSONB NOT NULL DEFAULT '{}',
+  match_alerts BOOLEAN NOT NULL DEFAULT false,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS user_settings (
+  id TEXT PRIMARY KEY DEFAULT 'default',
+  match_alerts BOOLEAN NOT NULL DEFAULT false,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS preference_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL DEFAULT 'Search',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  max_rent INTEGER,
+  bedrooms JSONB NOT NULL DEFAULT '[]',
+  min_bathrooms NUMERIC,
+  min_sqft INTEGER,
+  max_sqft INTEGER,
+  move_in_earliest TEXT,
+  move_in_latest TEXT,
+  required_features JSONB NOT NULL DEFAULT '[]',
+  preferred_features JSONB NOT NULL DEFAULT '[]',
+  preferred_neighborhoods JSONB NOT NULL DEFAULT '[]',
+  hard JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO user_settings (id, match_alerts)
+SELECT 'default', COALESCE(match_alerts, false)
+FROM user_preferences
+WHERE id = 'default'
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO user_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO preference_profiles (
+  name, sort_order, max_rent, bedrooms, min_bathrooms, min_sqft, max_sqft,
+  move_in_earliest, move_in_latest, required_features, preferred_features,
+  preferred_neighborhoods, hard
+)
+SELECT
+  'Search 1', 0, max_rent, bedrooms, min_bathrooms, min_sqft, max_sqft,
+  move_in_earliest, move_in_latest, required_features, preferred_features,
+  preferred_neighborhoods, hard
+FROM user_preferences
+WHERE id = 'default'
+  AND NOT EXISTS (SELECT 1 FROM preference_profiles);
+
+CREATE TABLE IF NOT EXISTS building_profiles (
+  apartment_id UUID PRIMARY KEY REFERENCES apartments(id) ON DELETE CASCADE,
+  year_built INTEGER,
+  building_age INTEGER,
+  year_built_source TEXT,
+  safety_score NUMERIC,
+  building_age_score NUMERIC,
+  walkability_score NUMERIC,
+  views_sun_score NUMERIC,
+  amenities_score NUMERIC,
+  overall_score NUMERIC,
+  overall_incomplete BOOLEAN NOT NULL DEFAULT false,
+  missing_categories JSONB NOT NULL DEFAULT '[]',
+  amenities JSONB NOT NULL DEFAULT '[]',
+  facts JSONB NOT NULL DEFAULT '{}',
+  judgments JSONB NOT NULL DEFAULT '{}',
+  summary TEXT,
+  evidence JSONB NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'pending',
+  analyzed_at TIMESTAMPTZ,
+  analysis_version INTEGER NOT NULL DEFAULT 0,
+  model TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS building_profile_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  apartment_id UUID NOT NULL REFERENCES apartments(id) ON DELETE CASCADE,
+  analysis_version INTEGER NOT NULL,
+  snapshot JSONB NOT NULL,
+  analyzed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS building_profile_history_apartment_idx
+  ON building_profile_history (apartment_id, analysis_version DESC);

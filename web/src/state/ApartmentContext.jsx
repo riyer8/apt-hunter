@@ -1,16 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { matchListingAgainstProfiles, mergeFeatures, normalizePreferenceBundle } from "@shared/match.js";
 import * as api from "../api/apartments.js";
 
 const ApartmentContext = createContext(null);
 
 export function ApartmentProvider({ children }) {
   const [apartments, setApartments] = useState([]);
+  const [preferences, setPreferences] = useState(normalizePreferenceBundle());
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState("local");
 
   const refresh = useCallback(async () => {
-    const items = await api.listApartments();
+    const [items, prefs] = await Promise.all([api.listApartments(), api.getUserPreferences()]);
     setApartments(items);
+    setPreferences(normalizePreferenceBundle(prefs));
     setSource(api.getDataSource());
     setLoading(false);
   }, []);
@@ -70,9 +73,25 @@ export function ApartmentProvider({ children }) {
     [refresh],
   );
 
+  const reanalyzeBuilding = useCallback(
+    async (id) => {
+      const result = await api.reanalyzeBuilding(id);
+      await refresh();
+      return result;
+    },
+    [refresh],
+  );
+
+  const savePreferences = useCallback((prefs) => {
+    setPreferences(normalizePreferenceBundle(prefs));
+  }, []);
+
+  const scoredApartments = useMemo(() => attachMatches(apartments, preferences), [apartments, preferences]);
+
   const value = useMemo(
     () => ({
-      apartments,
+      apartments: scoredApartments,
+      preferences,
       loading,
       source,
       refresh,
@@ -80,8 +99,10 @@ export function ApartmentProvider({ children }) {
       removeApartment,
       setMonitorState,
       scrapeNow,
+      reanalyzeBuilding,
+      savePreferences,
     }),
-    [apartments, loading, source, refresh, addApartment, removeApartment, setMonitorState, scrapeNow],
+    [scoredApartments, preferences, loading, source, refresh, addApartment, removeApartment, setMonitorState, scrapeNow, reanalyzeBuilding, savePreferences],
   );
 
   return <ApartmentContext.Provider value={value}>{children}</ApartmentContext.Provider>;
@@ -91,4 +112,23 @@ export function useApartments() {
   const value = useContext(ApartmentContext);
   if (!value) throw new Error("useApartments must be used within ApartmentProvider");
   return value;
+}
+
+function attachMatches(apartments, prefs) {
+  return (apartments || []).map((apartment) => ({
+    ...apartment,
+    listings: (apartment.listings || []).map((listing) => {
+      const features = mergeFeatures(apartment.features, listing.features);
+      const location = listing.location || apartment.location;
+      return {
+        ...listing,
+        apartmentId: listing.apartmentId || apartment.id,
+        apartmentName: listing.apartmentName || apartment.name,
+        features,
+        location,
+        buildingProfile: listing.buildingProfile || apartment.buildingProfile || null,
+        match: matchListingAgainstProfiles({ ...listing, features, location }, prefs?.profiles || []),
+      };
+    }),
+  }));
 }

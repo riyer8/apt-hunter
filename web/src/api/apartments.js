@@ -79,7 +79,9 @@ function toDashboardApartments(apartments, ledger) {
     lastChecked: apartment.lastChecked || apartment.analysis?.analyzedAt || null,
     listings: applyLedger(apartment.listings || [], ledger).map((listing) => ({
       ...listing,
+      apartmentId: listing.apartmentId || apartment.id,
       apartmentName: listing.apartmentName || apartment.name,
+      buildingProfile: listing.buildingProfile || apartment.buildingProfile || null,
     })),
   }));
 }
@@ -183,6 +185,29 @@ export async function listApartments() {
     return toDashboardApartments(bridgeState?.apartments || [], bridgeState?.listingLedger || {});
   }
   return clone(readLocal());
+}
+
+export async function getUserPreferences() {
+  if (await apiReady()) {
+    try {
+      return await apiRequest("/preferences");
+    } catch {
+      return null;
+    }
+  }
+  try {
+    const raw = localStorage.getItem("aptwatch.userPreferences");
+    if (raw) return JSON.parse(raw);
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export async function saveUserPreferences(prefs) {
+  if (await apiReady()) return apiRequest("/preferences", { method: "PUT", body: prefs });
+  localStorage.setItem("aptwatch.userPreferences", JSON.stringify(prefs));
+  return prefs;
 }
 
 export async function listNotifications({ unread, pending, limit } = {}) {
@@ -315,6 +340,13 @@ export async function listScrapeHistory(id) {
     return apiRequest(`/apartments/${id}/scrape-history`);
   }
   return [];
+}
+
+export async function reanalyzeBuilding(id) {
+  if (await apiReady()) {
+    return apiRequest(`/apartments/${id}/building-profile/reanalyze`, { method: "POST" });
+  }
+  throw new Error("Re-analyze Building needs the AptWatch API and an OpenAI key.");
 }
 
 export async function resetMockData() {

@@ -1,4 +1,5 @@
 import { CONFIDENCE, STATUS } from "@shared/schema.js";
+import { demoAvalonProfile, demoGeorgeProfile } from "@shared/demoBuildingProfiles.js";
 
 const ago = (amount, unit) => {
   const ms = {
@@ -28,6 +29,7 @@ export const MOCK_APARTMENTS = [
     dateAdded: ago(12, "days"),
     status: STATUS.SUCCESS,
     lastChecked: ago(4, "minutes"),
+    buildingProfile: demoGeorgeProfile(2026),
     listings: [
       listing({
         id: "lst_george_1204",
@@ -169,6 +171,7 @@ export const MOCK_APARTMENTS = [
     dateAdded: ago(3, "days"),
     status: STATUS.SUCCESS,
     lastChecked: ago(18, "minutes"),
+    buildingProfile: demoAvalonProfile(2026),
     listings: [
       listing({
         id: "lst_dog_00b143",
