@@ -84,7 +84,7 @@ export default function FilterBar({ filters, onChange, showSort = false }) {
         </label>
         <label className="toggle">
           <input type="checkbox" checked={filters.newOnly} onChange={set("newOnly")} />
-          NEW listings only
+          New listings only
         </label>
         <label className="toggle">
           <input type="checkbox" checked={filters.priceDropsOnly} onChange={set("priceDropsOnly")} />

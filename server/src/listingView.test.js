@@ -55,4 +55,18 @@ describe("building score listing view", () => {
       ["404", "202", "303", "101"],
     );
   });
+
+  it("8. inactive listings stay at the end", () => {
+    const listings = [
+      { unit: "101", price: 3000, isFavorite: true },
+      { unit: "202", price: 2500, isActive: false },
+      { unit: "303", price: 2800 },
+      { unit: "404", price: 2000, isActive: false, isFavorite: true },
+    ];
+    const ordered = sortListingsWithCuratedPriority(listings, "price");
+    assert.deepEqual(
+      ordered.map((listing) => listing.unit),
+      ["101", "303", "404", "202"],
+    );
+  });
 });

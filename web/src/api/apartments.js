@@ -124,6 +124,19 @@ function requestExtensionSync() {
   window.postMessage({ source: SOURCE_WEB, type: "SYNC_FROM_BACKEND" }, "*");
 }
 
+/** Pull API apartments into chrome.storage so the extension popup stays in sync with the website. */
+export function syncExtensionFromBackend() {
+  if (hasChromeStorage()) {
+    try {
+      chrome.runtime.sendMessage({ type: "SYNC_FROM_BACKEND" });
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+  requestExtensionSync();
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -147,7 +160,7 @@ export async function ensureBackendReady({ maxWaitMs = 30000 } = {}) {
     }
     await sleep(1000);
   }
-  requestExtensionSync();
+  syncExtensionFromBackend();
   await waitForBridge(800);
   return false;
 }
@@ -305,7 +318,9 @@ export async function getApartment(id) {
 
 export async function addApartment({ name, url }) {
   if (await apiReady()) {
-    return apiRequest("/apartments", { method: "POST", body: { name, url } });
+    const created = await apiRequest("/apartments", { method: "POST", body: { name, url } });
+    syncExtensionFromBackend();
+    return created;
   }
   if (hasChromeStorage()) {
     const data = await chrome.storage.local.get("apartments");
@@ -344,6 +359,7 @@ export async function addApartment({ name, url }) {
 export async function removeApartment(id) {
   if (await apiReady()) {
     await apiRequest(`/apartments/${id}`, { method: "DELETE" });
+    syncExtensionFromBackend();
     return true;
   }
   if (hasChromeStorage()) {
@@ -367,14 +383,18 @@ export async function removeApartment(id) {
 
 export async function setMonitorState(id, state) {
   if (await apiReady()) {
-    return apiRequest(`/apartments/${id}/monitor`, { method: "POST", body: { state } });
+    const result = await apiRequest(`/apartments/${id}/monitor`, { method: "POST", body: { state } });
+    syncExtensionFromBackend();
+    return result;
   }
   throw new Error("Start and pause monitoring need the API.");
 }
 
 export async function setApartmentSelection(id, patch) {
   if (await apiReady()) {
-    return apiRequest(`/apartments/${id}/selection`, { method: "POST", body: patch });
+    const result = await apiRequest(`/apartments/${id}/selection`, { method: "POST", body: patch });
+    syncExtensionFromBackend();
+    return result;
   }
   const apartments = await listApartments();
   const index = apartments.findIndex((item) => item.id === id);
@@ -400,7 +420,9 @@ export async function setApartmentSelection(id, patch) {
 
 export async function setListingSelection(id, patch) {
   if (await apiReady()) {
-    return apiRequest(`/listings/${id}/selection`, { method: "POST", body: patch });
+    const result = await apiRequest(`/listings/${id}/selection`, { method: "POST", body: patch });
+    syncExtensionFromBackend();
+    return result;
   }
   const updated = await updateStoredListingSelection(id, patch);
   if (!updated) throw new Error("Listing not found.");
@@ -472,7 +494,9 @@ export async function analyzeApartment(apartment) {
   const id = apartment?.id || apartment;
   const url = apartment?.url;
   if (await apiReady()) {
-    return apiRequest(`/apartments/${id}/scrape-now`, { method: "POST", timeoutMs: 120000 });
+    const result = await apiRequest(`/apartments/${id}/scrape-now`, { method: "POST", timeoutMs: 120000 });
+    syncExtensionFromBackend();
+    return result;
   }
   if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
     return new Promise((resolve, reject) => {
@@ -501,7 +525,9 @@ export async function analyzeApartment(apartment) {
 
 export async function scrapeNow(id) {
   if (await apiReady()) {
-    return apiRequest(`/apartments/${id}/scrape-now`, { method: "POST", timeoutMs: 120000 });
+    const result = await apiRequest(`/apartments/${id}/scrape-now`, { method: "POST", timeoutMs: 120000 });
+    syncExtensionFromBackend();
+    return result;
   }
   throw new Error("Scrape Now needs the API.");
 }
@@ -515,7 +541,9 @@ export async function listScrapeHistory(id) {
 
 export async function reanalyzeBuilding(id) {
   if (await apiReady()) {
-    return apiRequest(`/apartments/${id}/building-profile/reanalyze`, { method: "POST" });
+    const result = await apiRequest(`/apartments/${id}/building-profile/reanalyze`, { method: "POST" });
+    syncExtensionFromBackend();
+    return result;
   }
   throw new Error("Re-analyze Building needs the API and an OpenAI key.");
 }

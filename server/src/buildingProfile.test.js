@@ -68,6 +68,17 @@ describe("finalizeBuildingProfile", () => {
     assert.equal(profile.buildingAge, 5);
     assert.equal(profile.buildingAgeScore, 9.4);
   });
+
+  it("accepts year built from model knowledge when trustModelFacts is set", () => {
+    const profile = finalizeBuildingProfile({
+      raw: { facts: { yearBuilt: 2018, yearBuiltEvidence: "Opened 2018" }, judgments: { safety: { score: 7, insufficient: false } } },
+      sourcesText: "Name: Avalon Dogpatch",
+      nowYear: 2026,
+      trustModelFacts: true,
+    });
+    assert.equal(profile.yearBuilt, 2018);
+    assert.equal(profile.buildingAgeScore, 9);
+  });
 });
 
 describe("createBuildingIntelligence", () => {

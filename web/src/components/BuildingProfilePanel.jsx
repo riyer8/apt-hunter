@@ -35,6 +35,8 @@ export default function BuildingProfilePanel({ apartment, onReanalyze, busy, sou
 
       {profile.status === "skipped" || profile.status === "failed" ? (
         <p className={profile.status === "failed" ? "error" : "lede"}>{profile.summary}</p>
+      ) : profile.status === "insufficient" && profile.overallScore == null ? (
+        <p className="lede">The model could not score this building. Try Re-analyze or edit the prompt in server/src/buildingProfilePrompt.js.</p>
       ) : null}
 
       <BuildingScores profile={profile} />
@@ -52,7 +54,26 @@ export default function BuildingProfilePanel({ apartment, onReanalyze, busy, sou
           <dt>Walk Score (fact)</dt>
           <dd>{facts.walkScore != null ? facts.walkScore : "UNKNOWN"}</dd>
         </div>
+        <div>
+          <dt>Management</dt>
+          <dd>{facts.managementCompany || "UNKNOWN"}</dd>
+        </div>
+        {profile.judgments?.management?.score != null ? (
+          <div>
+            <dt>Management score</dt>
+            <dd>
+              {formatBuildingScore(profile.judgments.management.score)}/10 — {profile.judgments.management.rationale}
+            </dd>
+          </div>
+        ) : null}
       </dl>
+
+      {facts.reviewSummary ? (
+        <div className="building-summary">
+          <h3>Review themes</h3>
+          <p>{facts.reviewSummary}</p>
+        </div>
+      ) : null}
 
       <div className="amenity-list">
         <h3>Amenities</h3>

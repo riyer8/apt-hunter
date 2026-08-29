@@ -2,6 +2,10 @@ import { listingPassesSelection } from "./selection.js";
 
 const NEW_WINDOW_MS = 48 * 60 * 60 * 1000;
 
+export function isInactiveListing(listing) {
+  return listing?.isActive === false;
+}
+
 export function isNewListing(listing, now = Date.now()) {
   if (!listing?.firstSeen) return false;
   const first = Date.parse(listing.firstSeen);
@@ -30,6 +34,7 @@ export function isRecentlyChanged(listing, now = Date.now()) {
 export function listingMatchesFilters(listing, filters, now = Date.now()) {
   if (!listing) return false;
   if (!listingPassesSelection(listing, filters)) return false;
+  if (isInactiveListing(listing)) return true;
 
   if (filters.maxRent != null && filters.maxRent !== "") {
     if (listing.price == null || listing.price > Number(filters.maxRent)) return false;
@@ -88,13 +93,18 @@ export function sortListings(listings, sortKey = "unit", sortDir) {
   const key = sortKey || "unit";
   const defaultDir = DESC_SORT_KEYS.has(key) ? "desc" : "asc";
   const dir = sortDir || defaultDir;
-  const copy = [...listings].sort((left, right) => compareListings(left, right, key));
-  if (dir === "desc" && !DESC_SORT_KEYS.has(key)) copy.reverse();
-  if (dir === "asc" && DESC_SORT_KEYS.has(key)) copy.reverse();
-  return copy;
+  const active = listings.filter((listing) => !isInactiveListing(listing));
+  const inactive = listings.filter((listing) => isInactiveListing(listing));
+  const sortGroup = (group) => {
+    const copy = [...group].sort((left, right) => compareListings(left, right, key));
+    if (dir === "desc" && !DESC_SORT_KEYS.has(key)) copy.reverse();
+    if (dir === "asc" && DESC_SORT_KEYS.has(key)) copy.reverse();
+    return copy;
+  };
+  return [...sortGroup(active), ...sortGroup(inactive)];
 }
 
-export function sortListingsWithCuratedPriority(listings, sortKey = "unit", sortDir) {
+function sortListingsCurated(listings, sortKey = "unit", sortDir) {
   const sorted = sortListings(listings, sortKey, sortDir);
   const favorites = [];
   const watchlist = [];
@@ -105,6 +115,12 @@ export function sortListingsWithCuratedPriority(listings, sortKey = "unit", sort
     else rest.push(listing);
   }
   return [...favorites, ...watchlist, ...rest];
+}
+
+export function sortListingsWithCuratedPriority(listings, sortKey = "unit", sortDir) {
+  const active = listings.filter((listing) => !isInactiveListing(listing));
+  const inactive = listings.filter((listing) => isInactiveListing(listing));
+  return [...sortListingsCurated(active, sortKey, sortDir), ...sortListings(inactive, sortKey, sortDir)];
 }
 
 export function compareListings(left, right, key) {

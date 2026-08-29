@@ -142,7 +142,42 @@ describe("decideNotification", () => {
     assert.equal(result.reason, "failed-scrape");
   });
 
-  it("8. clicking a notification opens the listing URL", () => {
+  it("8. baseline scrape does not notify", () => {
+    const result = decideNotification({
+      outcome: "SUCCESS",
+      change: { id: "chg-baseline", type: "NEW" },
+      listing,
+      prefs,
+      baselineScrape: true,
+    });
+    assert.equal(result.notify, false);
+    assert.equal(result.reason, "baseline-scrape");
+  });
+
+  it("8b. a REMOVED favorite unit creates a notification", () => {
+    const result = decideNotification({
+      outcome: "SUCCESS",
+      change: { id: "chg-removed-fav", type: "REMOVED" },
+      listing: { ...listing, isFavorite: true },
+      prefs,
+    });
+    assert.equal(result.notify, true);
+    assert.equal(result.notification.notificationType, "FAVORITE_REMOVED");
+    assert.match(result.notification.title, /FAVORITE NO LONGER AVAILABLE/);
+  });
+
+  it("8c. a REMOVED non-favorite unit does not notify", () => {
+    const result = decideNotification({
+      outcome: "SUCCESS",
+      change: { id: "chg-removed", type: "REMOVED" },
+      listing,
+      prefs,
+    });
+    assert.equal(result.notify, false);
+    assert.equal(result.reason, "not-favorite");
+  });
+
+  it("9. clicking a notification opens the listing URL", () => {
     const result = decideNotification({
       outcome: "SUCCESS",
       change: { id: "chg-8", type: "NEW" },
@@ -159,14 +194,14 @@ describe("decideNotification", () => {
     assert.equal(notificationClickUrl(noUrl.notification), "http://localhost:5173/apartments/apt-george");
   });
 
-  it("9. marking a notification as read sets read_at", () => {
+  it("10. marking a notification as read sets read_at", () => {
     const row = { id: "n1", read_at: null };
     const read = markRead(row, "2026-08-27T16:00:00.000Z");
     assert.equal(read.read_at, "2026-08-27T16:00:00.000Z");
     assert.equal(row.read_at, null);
   });
 
-  it("10. denied notification permission is handled without prompting again", () => {
+  it("11. denied notification permission is handled without prompting again", () => {
     const denied = browserPermissionDecision("denied", { asked: false });
     assert.equal(denied.showPrompt, false);
     assert.equal(denied.enabled, false);

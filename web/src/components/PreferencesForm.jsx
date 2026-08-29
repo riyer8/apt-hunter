@@ -2,9 +2,19 @@ import { FEATURES, defaultUserPrefs } from "@shared/match.js";
 
 const BED_OPTIONS = [
   { value: 0, label: "Studio" },
-  { value: 1, label: "1" },
-  { value: 2, label: "2" },
-  { value: 3, label: "3+" },
+  { value: 1, label: "1 bed" },
+  { value: 2, label: "2 bed" },
+  { value: 3, label: "3+ bed" },
+];
+
+const DEALBREAKERS = [
+  { key: "maxRent", label: "Rent" },
+  { key: "bedrooms", label: "Beds" },
+  { key: "bathrooms", label: "Baths" },
+  { key: "minSqft", label: "Min sqft" },
+  { key: "maxSqft", label: "Max sqft" },
+  { key: "moveIn", label: "Dates" },
+  { key: "neighborhoods", label: "Area" },
 ];
 
 export default function PreferencesForm({ value, onChange }) {
@@ -42,162 +52,120 @@ export default function PreferencesForm({ value, onChange }) {
   return (
     <div className="prefs-form">
       <section className="prefs-section">
-        <label className="field">
-          <span>Search name</span>
-          <input value={prefs.name} onChange={(event) => set("name", event.target.value)} placeholder="Studio, 2 bed 2 bath…" />
-        </label>
-      </section>
-
-      <section className="prefs-section">
         <div className="section-head">
-          <h2>Budget</h2>
-          <label className="toggle">
-            <input type="checkbox" checked={prefs.hard.maxRent} onChange={(event) => setHard("maxRent", event.target.checked)} />
-            Must stay under max rent
-          </label>
+          <h2>Unit</h2>
         </div>
-        <label className="field">
-          <span>Max rent</span>
-          <input type="number" min="0" placeholder="Any" value={prefs.maxRent} onChange={(event) => set("maxRent", event.target.value)} />
-        </label>
-      </section>
 
-      <section className="prefs-section">
-        <div className="section-head">
-          <h2>Bedrooms</h2>
-          <label className="toggle">
-            <input type="checkbox" checked={prefs.hard.bedrooms} onChange={(event) => setHard("bedrooms", event.target.checked)} />
-            Must match
-          </label>
-        </div>
-        <div className="toggles">
-          {BED_OPTIONS.map((option) => (
-            <label className="toggle" key={option.value}>
-              <input type="checkbox" checked={prefs.bedrooms.includes(option.value)} onChange={() => toggleBed(option.value)} />
-              {option.label}
-            </label>
-          ))}
-        </div>
-      </section>
-
-      <section className="prefs-section">
-        <div className="section-head">
-          <h2>Bathrooms</h2>
-          <label className="toggle">
-            <input type="checkbox" checked={prefs.hard.bathrooms} onChange={(event) => setHard("bathrooms", event.target.checked)} />
-            Must match
-          </label>
-        </div>
-        <label className="field">
-          <span>Minimum bathrooms</span>
-          <input
-            type="number"
-            min="0"
-            step="0.5"
-            placeholder="Any"
-            value={prefs.minBathrooms}
-            onChange={(event) => set("minBathrooms", event.target.value)}
-          />
-        </label>
-      </section>
-
-      <section className="prefs-section">
-        <div className="section-head">
-          <h2>Size</h2>
-          <label className="toggle">
-            <input type="checkbox" checked={prefs.hard.minSqft} onChange={(event) => setHard("minSqft", event.target.checked)} />
-            Min sqft is required
-          </label>
-        </div>
-        <div className="filters" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        <div className="prefs-row prefs-row-4">
           <label className="field">
-            <span>Minimum sqft</span>
+            <span>Max rent /mo</span>
+            <input type="number" min="0" placeholder="Any" value={prefs.maxRent} onChange={(event) => set("maxRent", event.target.value)} />
+          </label>
+          <label className="field">
+            <span>Min baths</span>
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              placeholder="Any"
+              value={prefs.minBathrooms}
+              onChange={(event) => set("minBathrooms", event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>Min sqft</span>
             <input type="number" min="0" placeholder="Any" value={prefs.minSqft} onChange={(event) => set("minSqft", event.target.value)} />
           </label>
           <label className="field">
-            <span>Maximum sqft</span>
+            <span>Max sqft</span>
             <input type="number" min="0" placeholder="Any" value={prefs.maxSqft} onChange={(event) => set("maxSqft", event.target.value)} />
           </label>
         </div>
-        <label className="toggle" style={{ marginTop: 10 }}>
-          <input type="checkbox" checked={prefs.hard.maxSqft} onChange={(event) => setHard("maxSqft", event.target.checked)} />
-          Max sqft is required
-        </label>
+
+        <div className="prefs-inline">
+          <span className="prefs-inline-label">Bedrooms</span>
+          <div className="pill-group">
+            {BED_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={prefs.bedrooms.includes(option.value) ? "pill active" : "pill"}
+                onClick={() => toggleBed(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="prefs-dealbreakers">
+          <span className="prefs-inline-label">Dealbreakers</span>
+          <div className="pill-group pill-group-compact">
+            {DEALBREAKERS.map((item) => (
+              <label key={item.key} className={`pill pill-check ${prefs.hard[item.key] ? "active" : ""}`}>
+                <input type="checkbox" checked={prefs.hard[item.key]} onChange={(event) => setHard(item.key, event.target.checked)} />
+                {item.label}
+              </label>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="prefs-section">
         <div className="section-head">
-          <h2>Move-in date</h2>
-          <label className="toggle">
-            <input type="checkbox" checked={prefs.hard.moveIn} onChange={(event) => setHard("moveIn", event.target.checked)} />
-            Must fall in this window
-          </label>
+          <h2>When &amp; where</h2>
         </div>
-        <div className="filters" style={{ gridTemplateColumns: "1fr 1fr" }}>
+
+        <div className="prefs-row prefs-row-3">
           <label className="field">
-            <span>Earliest</span>
+            <span>Move in from</span>
             <input type="date" value={prefs.moveInEarliest} onChange={(event) => set("moveInEarliest", event.target.value)} />
           </label>
           <label className="field">
-            <span>Latest</span>
+            <span>Move in by</span>
             <input type="date" value={prefs.moveInLatest} onChange={(event) => set("moveInLatest", event.target.value)} />
           </label>
-        </div>
-      </section>
-
-      <section className="prefs-section">
-        <div className="section-head">
-          <h2>Location</h2>
-          <label className="toggle">
+          <label className="field">
+            <span>Neighborhoods</span>
             <input
-              type="checkbox"
-              checked={prefs.hard.neighborhoods}
-              onChange={(event) => setHard("neighborhoods", event.target.checked)}
+              placeholder="SoMa, Dogpatch, Mission"
+              value={prefs.neighborhoodsText}
+              onChange={(event) => set("neighborhoodsText", event.target.value)}
             />
-            Must be in these areas
           </label>
         </div>
-        <label className="field">
-          <span>Preferred neighborhoods/areas</span>
-          <input
-            placeholder="SoMa, Dogpatch, Mission"
-            value={prefs.neighborhoodsText}
-            onChange={(event) => set("neighborhoodsText", event.target.value)}
-          />
-        </label>
       </section>
 
       <section className="prefs-section">
         <div className="section-head">
           <h2>Amenities</h2>
+          <p className="prefs-hint">Check Required or Preferred — or both columns for either.</p>
         </div>
-        <div className="amenity-grid">
-          <div>
-            <h3>Required</h3>
-            {FEATURES.map((feature) => (
-              <label className="toggle" key={`req-${feature.id}`}>
+        <div className="amenity-table">
+          <div className="amenity-table-head">
+            <span>Amenity</span>
+            <span>Required</span>
+            <span>Preferred</span>
+          </div>
+          {FEATURES.map((feature) => (
+            <div className="amenity-table-row" key={feature.id}>
+              <span>{feature.label}</span>
+              <label className="amenity-check">
                 <input
                   type="checkbox"
                   checked={prefs.requiredFeatures.includes(feature.id)}
                   onChange={() => toggleFeature("requiredFeatures", feature.id)}
                 />
-                {feature.label}
               </label>
-            ))}
-          </div>
-          <div>
-            <h3>Preferred</h3>
-            {FEATURES.map((feature) => (
-              <label className="toggle" key={`pref-${feature.id}`}>
+              <label className="amenity-check">
                 <input
                   type="checkbox"
                   checked={prefs.preferredFeatures.includes(feature.id)}
                   onChange={() => toggleFeature("preferredFeatures", feature.id)}
                 />
-                {feature.label}
               </label>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </section>
     </div>
@@ -221,7 +189,7 @@ function fromApi(prefs) {
 function toApi(prefs) {
   return {
     id: prefs.id || null,
-    name: prefs.name || "Search",
+    name: prefs.name ?? "",
     maxRent: prefs.maxRent === "" ? null : prefs.maxRent,
     bedrooms: prefs.bedrooms,
     minBathrooms: prefs.minBathrooms === "" ? null : prefs.minBathrooms,

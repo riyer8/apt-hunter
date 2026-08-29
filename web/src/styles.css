@@ -602,6 +602,24 @@ h2,
   background: #f5fbff;
 }
 
+.listings-table tbody tr.listing-row-inactive,
+.listing-card.inactive {
+  color: var(--muted);
+}
+
+.listings-table tbody tr.listing-row-inactive td,
+.listing-card.inactive .listing-title,
+.listing-card.inactive .listing-price,
+.listing-card.inactive .listing-specs,
+.listing-card.inactive .listing-date {
+  text-decoration: line-through;
+}
+
+.badge-removed {
+  color: var(--muted);
+  background: #f0f0f0;
+}
+
 .status {
   display: inline-flex;
   align-items: center;
@@ -942,6 +960,17 @@ h2,
   color: var(--muted);
 }
 
+.empty-filtered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-filtered p {
+  margin: 0;
+}
+
 .empty {
   padding: 48px 24px;
   border: 1px dashed var(--line);
@@ -1116,6 +1145,129 @@ h2,
   gap: 8px;
 }
 
+.prefs-row {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.prefs-row-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.prefs-row-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.prefs-inline,
+.prefs-dealbreakers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 12px;
+}
+
+.prefs-inline-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 72px;
+}
+
+.prefs-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill-group-compact .pill {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.pill.active {
+  background: var(--forest);
+  border-color: var(--forest);
+  color: #fff;
+}
+
+.pill-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.pill-check input {
+  accent-color: var(--forest);
+  margin: 0;
+}
+
+.amenity-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.amenity-table-head,
+.amenity-table-row {
+  display: grid;
+  grid-template-columns: 1fr 88px 88px;
+  gap: 8px;
+  align-items: center;
+}
+
+.amenity-table-head {
+  padding: 0 4px 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.amenity-table-head span:not(:first-child) {
+  text-align: center;
+}
+
+.amenity-table-row {
+  padding: 8px 4px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.amenity-check {
+  display: flex;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.amenity-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--forest);
+  cursor: pointer;
+}
+
 .prefs-section {
   padding: 18px 20px 20px;
   margin-bottom: 12px;
@@ -1164,7 +1316,60 @@ h2,
 }
 
 .profile-tab-add {
+  border-style: dashed;
   color: var(--forest);
+}
+
+.profile-tab-placeholder {
+  opacity: 0.72;
+  font-style: italic;
+}
+
+.prefs-name-block {
+  margin-bottom: 12px;
+}
+
+.prefs-name-field {
+  gap: 8px;
+}
+
+.prefs-name-wrap {
+  position: relative;
+}
+
+.prefs-name-default {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  pointer-events: none;
+  user-select: none;
+}
+
+.prefs-name-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.prefs-name-input:focus {
+  outline: none;
+  border-color: var(--forest);
+  box-shadow: 0 0 0 4px rgba(31, 79, 70, 0.08);
+}
+
+.prefs-name-input::placeholder {
+  color: transparent;
 }
 
 .source-link {
@@ -1319,6 +1524,10 @@ h2,
 }
 
 @media (max-width: 900px) {
+  .prefs-row-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .stats,
   .stats-changes,
   .filters,
@@ -1329,6 +1538,8 @@ h2,
   .history-list li,
   .change-row,
   .amenity-grid,
+  .prefs-row-4,
+  .prefs-row-3,
   .building-facts,
   .amenity-list ul {
     grid-template-columns: 1fr;

@@ -1,4 +1,5 @@
 import { apiAvailable, apiRequest, getApiUrl } from "../lib/backend.js";
+import { syncFromBackend } from "../lib/storage.js";
 
 const ALARM = "aptwatch-alerts";
 const CLICKS_KEY = "notificationClicks";
@@ -26,6 +27,7 @@ chrome.notifications.onClicked.addListener(async (id) => {
 
 async function pullAlerts() {
   if (!(await apiAvailable())) return;
+  await syncFromBackend().catch(() => {});
   const data = await apiRequest("/notifications?pending=1&limit=20");
   const clicks = (await chrome.storage.local.get(CLICKS_KEY))[CLICKS_KEY] || {};
 

@@ -11,13 +11,14 @@ export default function ListingCard({
   onSelectionChange,
   selectionBusy = false,
 }) {
-  const isNew = isNewListing(listing);
-  const drop = isPriceDrop(listing);
-  const dropAmount = priceDropAmount(listing);
+  const inactive = listing.isActive === false;
+  const isNew = !inactive && isNewListing(listing);
+  const drop = !inactive && isPriceDrop(listing);
+  const dropAmount = drop ? priceDropAmount(listing) : null;
   const specs = specLine(listing);
 
   return (
-    <article className="listing-card">
+    <article className={`listing-card${inactive ? " inactive" : ""}`}>
       <div className="listing-card-head">
         <div>
           <h3 className="listing-title">
@@ -33,8 +34,9 @@ export default function ListingCard({
         </div>
         <div className="listing-card-flags">
           <MatchBadge match={listing.match} />
-          {isNew ? <span className="badge badge-new">🆕 NEW</span> : null}{" "}
+          {isNew ? <span className="badge badge-new">New</span> : null}{" "}
           {drop ? <span className="badge badge-drop">Price drop</span> : null}
+          {inactive ? <span className="badge badge-removed">Out</span> : null}
         </div>
       </div>
 

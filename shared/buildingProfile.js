@@ -148,21 +148,31 @@ export function clampScore(value) {
 
 /**
  * Merge model output with derived age score.
- * Year built is kept only when it appears in the gathered source text.
+ * Year built is kept when it appears in source text, or when trustModelFacts is set (chat-only mode).
  */
-export function finalizeBuildingProfile({ raw, sourcesText, nowYear = new Date().getFullYear(), model = null }) {
+export function finalizeBuildingProfile({
+  raw,
+  sourcesText,
+  nowYear = new Date().getFullYear(),
+  model = null,
+  trustModelFacts = false,
+}) {
   const facts = raw?.facts && typeof raw.facts === "object" ? raw.facts : {};
   const judgments = raw?.judgments && typeof raw.judgments === "object" ? raw.judgments : {};
   const claimedYear = facts.yearBuilt == null || facts.yearBuilt === "" ? null : Number(facts.yearBuilt);
   const yearBuilt =
-    Number.isInteger(claimedYear) && yearMentionedInSources(claimedYear, sourcesText) ? claimedYear : null;
+    Number.isInteger(claimedYear) &&
+    (trustModelFacts || yearMentionedInSources(claimedYear, sourcesText))
+      ? claimedYear
+      : null;
   const buildingAge = buildingAgeYears(yearBuilt, nowYear);
   const buildingAgeScore = buildingAgeScoreFromYear(yearBuilt, nowYear);
+  const amenities = normalizeAmenityList(facts.amenities);
 
   const safety = judgmentScore(judgments.safety);
   const walkability = judgmentScore(judgments.walkability);
   const viewsSun = judgmentScore(judgments.viewsSun);
-  const amenitiesScore = judgmentScore(judgments.amenities);
+  const amenitiesScore = judgmentScore(judgments.amenities) ?? amenitiesScoreFromList(amenities);
   const overall = overallBuildingScore({
     safety,
     buildingAge: buildingAgeScore,
@@ -171,7 +181,6 @@ export function finalizeBuildingProfile({ raw, sourcesText, nowYear = new Date()
     amenities: amenitiesScore,
   });
 
-  const amenities = normalizeAmenityList(facts.amenities);
   const evidence = collectEvidence({ yearBuilt, facts, judgments, sourcesText });
 
   const anyScore = [safety, buildingAgeScore, walkability, viewsSun, amenitiesScore].some((value) => value != null);
@@ -196,6 +205,8 @@ export function finalizeBuildingProfile({ raw, sourcesText, nowYear = new Date()
       walkScore: facts.walkScore ?? null,
       stories: facts.stories ?? null,
       neighborhood: facts.neighborhood || null,
+      managementCompany: facts.managementCompany || null,
+      reviewSummary: facts.reviewSummary || null,
       amenities,
     },
     judgments: {
@@ -204,12 +215,15 @@ export function finalizeBuildingProfile({ raw, sourcesText, nowYear = new Date()
         score: buildingAgeScore,
         rationale: yearBuilt
           ? `Derived from year built ${yearBuilt} (age ${buildingAge}): 10 − age × 0.12.`
-          : "Insufficient evidence — no verified construction year in sources.",
+          : trustModelFacts
+            ? "Year built unknown."
+            : "Insufficient evidence — no verified construction year in sources.",
         insufficient: buildingAgeScore == null,
       },
       walkability: judgmentRecord(judgments.walkability, walkability),
       viewsSun: judgmentRecord(judgments.viewsSun, viewsSun),
       amenities: judgmentRecord(judgments.amenities, amenitiesScore),
+      management: judgmentRecord(judgments.management, judgmentScore(judgments.management)),
     },
     summary: status === "insufficient" ? raw?.summary || "Insufficient evidence" : raw?.summary || null,
     evidence,
@@ -245,6 +259,13 @@ function normalizeAmenityList(list) {
   return (Array.isArray(list) ? list : []).map(String).filter((id) => allowed.has(id));
 }
 
+/** Fallback when the model lists amenities but does not score them. */
+export function amenitiesScoreFromList(amenities) {
+  const count = (amenities || []).length;
+  if (count === 0) return null;
+  return round1(Math.min(10, 3.5 + count * 0.75));
+}
+
 function collectEvidence({ yearBuilt, facts, judgments, sourcesText }) {
   const items = [];
   if (yearBuilt) {
@@ -254,14 +275,14 @@ function collectEvidence({ yearBuilt, facts, judgments, sourcesText }) {
       quote: facts.yearBuiltEvidence || null,
     });
   }
-  for (const key of ["safety", "walkability", "viewsSun", "amenities"]) {
+  for (const key of ["safety", "walkability", "viewsSun", "amenities", "management"]) {
     const entry = judgments[key];
     if (entry?.evidence) {
       items.push({ category: key, quote: String(entry.evidence).slice(0, 500) });
     }
   }
   if (!items.length && sourcesText) {
-    items.push({ category: "sources", quote: "See gathered building pages." });
+    items.push({ category: "sources", quote: "See gathered web sources." });
   }
   return items;
 }

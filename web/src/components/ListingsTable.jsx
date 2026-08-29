@@ -60,10 +60,11 @@ export default function ListingsTable({
         </thead>
         <tbody>
           {listings.map((listing) => {
-            const isNew = isNewListing(listing);
-            const drop = isPriceDrop(listing);
+            const inactive = listing.isActive === false;
+            const isNew = !inactive && isNewListing(listing);
+            const drop = !inactive && isPriceDrop(listing);
             const unitLabel = listing.unit || listing.floorPlan || listingTitle(listing);
-            const unit = listing.listingUrl ? (
+            const unit = !inactive && listing.listingUrl ? (
               <a href={listing.listingUrl} target="_blank" rel="noreferrer">
                 {unitLabel}
               </a>
@@ -71,11 +72,13 @@ export default function ListingsTable({
               unitLabel
             );
 
-            const rowClass = listing.isFavorite
-              ? "listing-row-favorite"
-              : listing.isWatchlisted
-                ? "listing-row-watchlist"
-                : undefined;
+            const rowClass = inactive
+              ? "listing-row-inactive"
+              : listing.isFavorite
+                ? "listing-row-favorite"
+                : listing.isWatchlisted
+                  ? "listing-row-watchlist"
+                  : undefined;
 
             return (
               <tr key={listing.id || `${listing.apartmentId}-${unitLabel}`} className={rowClass}>
@@ -102,8 +105,9 @@ export default function ListingsTable({
                     ) : null}
                     {unit}
                   </span>
-                  {isNew ? <span className="badge badge-new">NEW</span> : null}
-                  {drop ? <span className="badge badge-drop">Drop</span> : null}
+                  {inactive ? <span className="badge badge-removed">Out</span> : null}
+                  {isNew ? <span className="badge badge-new">New</span> : null}
+                  {drop ? <span className="badge badge-drop">Price drop</span> : null}
                 </td>
                 <td className="num">
                   <MatchBadge match={listing.match} />

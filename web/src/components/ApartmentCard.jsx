@@ -12,8 +12,10 @@ export default function ApartmentCard({
   onSelectionChange,
   selectionBusy = false,
   onAnalyze,
+  onScrape,
   onDelete,
   analyzeBusy = false,
+  scrapeBusy = false,
   deleteBusy = false,
   showActions = true,
 }) {
@@ -23,6 +25,7 @@ export default function ApartmentCard({
   const monitor = monitorMeta(apartment);
   const changes = changeCount({ changeSummary: summary });
   const analyzing = apartment.status === "Analyzing…" || analyzeBusy;
+  const scraping = scrapeBusy;
 
   return (
     <article className="apt-card">
@@ -70,14 +73,23 @@ export default function ApartmentCard({
 
       {showActions ? (
         <div className="apt-card-actions">
-          {onAnalyze ? (
+          {onScrape ? (
+            <button
+              type="button"
+              className="btn btn-primary btn-small"
+              disabled={scraping || analyzing || deleteBusy}
+              onClick={() => onScrape(apartment)}
+            >
+              {scraping ? "Refreshing…" : "Refresh listings"}
+            </button>
+          ) : onAnalyze ? (
             <button
               type="button"
               className="btn btn-primary btn-small"
               disabled={analyzing || deleteBusy}
               onClick={() => onAnalyze(apartment)}
             >
-              {analyzing ? "Analyzing…" : "Analyze"}
+              {analyzing ? "Refreshing…" : "Refresh listings"}
             </button>
           ) : null}
           <Link className="btn btn-ghost btn-small" to={`/apartments/${apartment.id}`}>

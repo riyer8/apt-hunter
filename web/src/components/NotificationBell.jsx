@@ -115,7 +115,7 @@ export default function NotificationBell({ source }) {
                     }}
                   >
                     <span>
-                      {bellEmoji(item.notificationType)} {item.apartmentName}
+                      {item.apartmentName}
                       {item.unit ? ` — Unit ${item.unit}` : ""}
                     </span>
                     <small>{formatRelativeTime(item.createdAt)}</small>
@@ -130,10 +130,3 @@ export default function NotificationBell({ source }) {
   );
 }
 
-function bellEmoji(type) {
-  if (type === "NEW_LISTING") return "🆕";
-  if (type === "PRICE_DROP") return "💰";
-  if (type === "PRICE_INCREASE") return "📈";
-  if (type === "AVAILABILITY_CHANGED") return "📅";
-  return "🔔";
-}

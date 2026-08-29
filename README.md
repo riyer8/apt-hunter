@@ -9,6 +9,12 @@ click AptWatch → add a name and URL → Analyze
 open an availability page, then Analyze again to refresh units  
 Dashboard in the popup opens the website
 
+### Backend
+
+```
+npm run dev
+```
+
 ## CI
 
 GitHub Actions — see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)

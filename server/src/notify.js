@@ -3,6 +3,7 @@ export const NOTIFY_TYPES = {
   PRICE_DROP: "PRICE_DROP",
   PRICE_INCREASE: "PRICE_INCREASE",
   AVAILABILITY_CHANGED: "AVAILABILITY_CHANGED",
+  FAVORITE_REMOVED: "FAVORITE_REMOVED",
 };
 
 export const CHANGE_TO_NOTIFY = {
@@ -36,6 +37,7 @@ const TYPE_COPY = {
   PRICE_DROP: { emoji: "💰", title: "PRICE DROP", bell: "💰" },
   PRICE_INCREASE: { emoji: "📈", title: "PRICE INCREASE", bell: "📈" },
   AVAILABILITY_CHANGED: { emoji: "📅", title: "AVAILABILITY CHANGED", bell: "📅" },
+  FAVORITE_REMOVED: { emoji: "★", title: "FAVORITE NO LONGER AVAILABLE", bell: "★" },
 };
 
 const DISABLED_NOTICE = "Browser notifications are disabled. Enable notifications to receive alerts.";
@@ -57,7 +59,12 @@ export function decideNotification({
   match = null,
   alreadyNotifiedChangeIds = new Set(),
   dashboardOrigin = "http://localhost:5173",
+  baselineScrape = false,
 }) {
+  if (baselineScrape) {
+    return { notify: false, reason: "baseline-scrape" };
+  }
+
   const status = String(outcome || "").toUpperCase();
   if (status === "FAILED") {
     return { notify: false, reason: "failed-scrape" };
@@ -71,7 +78,27 @@ export function decideNotification({
     return { notify: false, reason: "duplicate" };
   }
 
-  const type = notifyTypeForChange(change?.type || change?.changeType);
+  const changeType = change?.type || change?.changeType;
+  if (changeType === "REMOVED") {
+    const isFavorite = listing?.isFavorite === true || listing?.is_favorite === true;
+    if (!isFavorite) {
+      return { notify: false, reason: "not-favorite" };
+    }
+    return {
+      notify: true,
+      reason: null,
+      notification: buildNotificationRecord({
+        type: NOTIFY_TYPES.FAVORITE_REMOVED,
+        change,
+        listing,
+        dashboardOrigin,
+        userPrefs,
+        match,
+      }),
+    };
+  }
+
+  const type = notifyTypeForChange(changeType);
   if (!type) {
     return { notify: false, reason: "unsupported-type" };
   }

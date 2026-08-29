@@ -2,7 +2,7 @@ export const MONITOR_ACTIVE = "active";
 export const MONITOR_PAUSED = "paused";
 
 export function getScheduleConfig(env = process.env) {
-  const intervalMs = positiveNumber(env.SCRAPE_INTERVAL_MS, 30 * 60 * 1000);
+  const intervalMs = positiveNumber(env.SCRAPE_INTERVAL_MS, 60 * 60 * 1000);
   const tickMs = positiveNumber(env.SCHEDULER_TICK_MS, 15 * 1000);
   const maxAttempts = positiveNumber(env.SCRAPE_MAX_ATTEMPTS, 3);
   const backoffMs = String(env.SCRAPE_RETRY_BACKOFF_MS || "120000,480000")

@@ -19,6 +19,10 @@ export const EMPTY_FILTERS = {
   sortDir: "",
 };
 
+export function hasActiveDashboardFilters(filters) {
+  return Boolean(filters.query.trim() || hasListingFilters(filters) || filters.selectionScope);
+}
+
 export function hasListingFilters(filters) {
   return Boolean(
     filters.maxRent ||

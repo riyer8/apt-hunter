@@ -1,3 +1,5 @@
+import { cleanSearchName, suggestSearchName } from "../../shared/match.js";
+
 export function isValidHttpUrl(value) {
   try {
     const parsed = new URL(value);
@@ -159,12 +161,17 @@ export function parseUserPrefs(body) {
 
 export function parseProfile(body, index = 0) {
   const parsed = parseUserPrefs(body);
-  const name = String(body?.name || `Search ${index + 1}`)
-    .trim()
-    .slice(0, 80);
+  const trimmed = cleanSearchName(body?.name).slice(0, 80);
+  const name =
+    trimmed ||
+    suggestSearchName({
+      ...parsed,
+      preferredNeighborhoods: parsed.preferredNeighborhoods,
+    }) ||
+    (index === 0 ? "My search" : "New search");
   return {
     id: isUuid(body?.id) ? body.id : null,
-    name: name || `Search ${index + 1}`,
+    name,
     maxRent: parsed.maxRent,
     bedrooms: parsed.bedrooms,
     minBathrooms: parsed.minBathrooms,

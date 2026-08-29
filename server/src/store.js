@@ -14,7 +14,7 @@ import {
 } from "./serialize.js";
 import { pool, query } from "./db.js";
 import { decideNotification } from "./notify.js";
-import { buildingProfilesFor, insertPendingBuildingProfile, queueBuildingAnalysis } from "./buildingAnalyze.js";
+import { buildingProfilesFor, maybeStartBuildingProfileOnFirstScrape } from "./buildingAnalyze.js";
 
 const CHANGE_WINDOW_MS = 48 * 60 * 60 * 1000;
 const CHANGE_TYPES = new Set([
@@ -68,7 +68,8 @@ export async function previousPricesFor(listingIds) {
 
 export async function assembleApartments(rows, options = {}) {
   const apartmentIds = rows.map((row) => row.id);
-  const listings = await listingsForApartments(apartmentIds, options);
+  const includeInactive = options.includeInactive !== false;
+  const listings = await listingsForApartments(apartmentIds, { includeInactive });
   const previous = await previousPricesFor(listings.map((row) => row.id));
   const scrapeMeta = await scrapeMetaFor(apartmentIds);
   const changeCounts = await changeCountsFor(apartmentIds, new Date(Date.now() - CHANGE_WINDOW_MS).toISOString());
@@ -131,13 +132,6 @@ export function toMatchedListing(listing, apartment, previousPrice, userPrefs, b
 export async function createOrGetApartment({ name, url, canonicalUrl, location }) {
   const existing = await query("SELECT * FROM apartments WHERE canonical_url = $1", [canonicalUrl]);
   if (existing.rows[0]) {
-    const profile = await query("SELECT apartment_id FROM building_profiles WHERE apartment_id = $1", [
-      existing.rows[0].id,
-    ]);
-    if (!profile.rows[0]) {
-      await insertPendingBuildingProfile(existing.rows[0].id);
-      queueBuildingAnalysis(existing.rows[0]);
-    }
     return { apartment: existing.rows[0], created: false };
   }
 
@@ -148,8 +142,6 @@ export async function createOrGetApartment({ name, url, canonicalUrl, location }
     [name, url, canonicalUrl, location],
   );
   await ensureAlertPrefs(inserted.rows[0].id);
-  await insertPendingBuildingProfile(inserted.rows[0].id);
-  queueBuildingAnalysis(inserted.rows[0]);
   return { apartment: inserted.rows[0], created: true };
 }
 
@@ -226,6 +218,7 @@ export async function recordScrape(apartment, payload) {
 
     const prefs = toApiAlertPrefs(await loadAlertPrefs(client, apartment.id));
     const userPrefs = await getUserPrefs(client);
+    const isBaselineScrape = previous.rows.length === 0;
 
     for (const event of plan.events) {
       const listing = listingByKey.get(event.identityKey);
@@ -247,10 +240,15 @@ export async function recordScrape(apartment, payload) {
           completedAt,
         ],
       );
-      if (status === "success") {
+      if (status === "success" && !isBaselineScrape) {
         await insertNotificationForChange(client, {
           change: insertedChange.rows[0],
-          listing: { ...listing, apartmentName: apartment.name, apartmentId: apartment.id },
+          listing: {
+            ...listing,
+            apartmentName: apartment.name,
+            apartmentId: apartment.id,
+            isFavorite: listing.is_favorite === true,
+          },
           apartment,
           outcome: payload.outcome,
           prefs,
@@ -268,6 +266,11 @@ export async function recordScrape(apartment, payload) {
 
     await client.query("COMMIT");
     run.rows[0].listings_found = plan.incomingByKey.size;
+    if (status === "success") {
+      maybeStartBuildingProfileOnFirstScrape(apartment).catch((error) => {
+        console.error("Building profile start failed:", error.message);
+      });
+    }
     return run.rows[0];
   } catch (error) {
     await client.query("ROLLBACK");

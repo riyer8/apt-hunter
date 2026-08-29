@@ -25,7 +25,7 @@ export const ATTR = {
 
 export const DEFAULT_USER_PREFS = {
   id: null,
-  name: "Search",
+  name: "",
   maxRent: null,
   bedrooms: [],
   minBathrooms: null,
@@ -169,22 +169,62 @@ export function matchListing(listing, prefs = {}) {
   };
 }
 
+export function cleanSearchName(name) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed || /^Search \d+$/i.test(trimmed)) return "";
+  return trimmed;
+}
+
+export function hasCustomSearchName(prefs = {}) {
+  return Boolean(cleanSearchName(prefs.name));
+}
+
+export function suggestSearchName(prefs = {}) {
+  const parts = [];
+  const bedrooms = prefs.bedrooms || [];
+  if (bedrooms.length === 1) {
+    const bed = bedrooms[0];
+    if (bed === 0) parts.push("Studio");
+    else if (bed >= 3) parts.push("3+ bed");
+    else parts.push(`${bed} bed`);
+  } else if (bedrooms.length > 1) {
+    parts.push("Multi-bed");
+  }
+  if (prefs.maxRent != null && prefs.maxRent !== "") {
+    parts.push(`under $${Number(prefs.maxRent).toLocaleString("en-US")}`);
+  }
+  const hoods = prefs.preferredNeighborhoods || [];
+  if (hoods.length) parts.push(hoods.slice(0, 2).join(", "));
+  return parts.join(" · ").slice(0, 80);
+}
+
+export function displaySearchLabel(prefs = {}, index = 0) {
+  const name = cleanSearchName(prefs.name);
+  if (name) return { text: name, isPlaceholder: false };
+  const suggested = suggestSearchName(prefs);
+  if (suggested) return { text: suggested, isPlaceholder: true };
+  return { text: index === 0 ? "My search" : "New search", isPlaceholder: true };
+}
+
 export function emptyPreferenceBundle() {
-  return { matchAlerts: false, profiles: [defaultUserPrefs({ name: "Search 1" })] };
+  return { matchAlerts: false, profiles: [defaultUserPrefs({ name: "" })] };
 }
 
 export function normalizePreferenceBundle(data) {
   if (!data) return emptyPreferenceBundle();
   if (Array.isArray(data.profiles)) {
-    const profiles = data.profiles.length ? data.profiles : [{ name: "Search 1" }];
+    const profiles = data.profiles.length ? data.profiles : [{}];
     return {
       matchAlerts: data.matchAlerts === true,
-      profiles: profiles.map((profile, index) => defaultUserPrefs({ name: `Search ${index + 1}`, ...profile })),
+      profiles: profiles.map((profile) => {
+        const normalized = defaultUserPrefs(profile);
+        return { ...normalized, name: cleanSearchName(normalized.name) };
+      }),
     };
   }
   return {
     matchAlerts: data.matchAlerts === true,
-    profiles: [defaultUserPrefs({ name: data.name || "Search 1", ...data })],
+    profiles: [defaultUserPrefs({ ...data, name: cleanSearchName(data.name) })],
   };
 }
 

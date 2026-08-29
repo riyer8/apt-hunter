@@ -8,7 +8,7 @@ import {
   sortListingsWithCuratedPriority,
 } from "@shared/listingView.js";
 import { useApartments } from "../state/ApartmentContext.jsx";
-import { apartmentVisible, apartmentIncludedInListings } from "../lib/filters.js";
+import { apartmentVisible, apartmentIncludedInListings, hasActiveDashboardFilters, EMPTY_FILTERS } from "../lib/filters.js";
 import { formatPrice, formatRelativeTime, listingTitle } from "../lib/format.js";
 import { cycleSort, usePersistentFilters } from "../hooks/usePersistentFilters.js";
 import Shell from "../components/Shell.jsx";
@@ -27,6 +27,7 @@ export default function Dashboard() {
     removeApartment,
     setApartmentSelection,
     setListingSelection,
+    scrapeNow,
     analyzeApartment,
   } = useApartments();
   const [filters, setFilters] = usePersistentFilters();
@@ -34,6 +35,7 @@ export default function Dashboard() {
   const [selectionBusy, setSelectionBusy] = useState("");
   const [listingSelectionBusy, setListingSelectionBusy] = useState("");
   const [analyzeBusy, setAnalyzeBusy] = useState("");
+  const [scrapeBusy, setScrapeBusy] = useState("");
   const [deleteBusy, setDeleteBusy] = useState("");
   const canManage = source === "api" || source === "extension";
 
@@ -95,6 +97,21 @@ export default function Dashboard() {
     }
   }
 
+  async function handleScrape(apartment) {
+    setScrapeBusy(apartment.id);
+    try {
+      if (source === "api") {
+        await scrapeNow(apartment.id);
+      } else {
+        await analyzeApartment(apartment);
+      }
+    } catch (error) {
+      window.alert(error?.message || "Refresh failed.");
+    } finally {
+      setScrapeBusy("");
+    }
+  }
+
   async function handleAnalyze(apartment) {
     setAnalyzeBusy(apartment.id);
     try {
@@ -122,7 +139,9 @@ export default function Dashboard() {
       filters,
       onSelectionChange: canManage ? (patch) => handleSelectionChange(apartment.id, patch) : undefined,
       selectionBusy: selectionBusy === apartment.id,
-      onAnalyze: canManage ? handleAnalyze : undefined,
+      onScrape: canManage ? handleScrape : undefined,
+      scrapeBusy: scrapeBusy === apartment.id,
+      onAnalyze: canManage && source !== "api" ? handleAnalyze : undefined,
       onDelete: canManage ? handleDelete : undefined,
       analyzeBusy: analyzeBusy === apartment.id,
       deleteBusy: deleteBusy === apartment.id,
@@ -326,7 +345,15 @@ export default function Dashboard() {
         </div>
         {visibleMain.length === 0 && !loading ? (
           <div className="empty">
-            {apartments.length === 0 ? "None" : "No matches"}
+            {apartments.length === 0 ? (
+              "None"
+            ) : (
+              <FilterEmptyState
+                filters={filters}
+                count={apartments.length}
+                onClearFilters={() => setFilters({ ...EMPTY_FILTERS })}
+              />
+            )}
           </div>
         ) : (
           <div className="card-grid">
@@ -386,7 +413,16 @@ export default function Dashboard() {
         </div>
         {unitsMain.length === 0 ? (
           <div className="empty">
-            {allListings.length === 0 ? "None" : "No matches"}
+            {allListings.length === 0 ? (
+              "None"
+            ) : (
+              <FilterEmptyState
+                filters={filters}
+                count={allListings.length}
+                onClearFilters={() => setFilters({ ...EMPTY_FILTERS })}
+                noun="units"
+              />
+            )}
           </div>
         ) : (
           <ListingsTable
@@ -405,5 +441,26 @@ export default function Dashboard() {
         <AddApartmentModal onClose={() => setAdding(false)} onAdd={addApartment} />
       ) : null}
     </Shell>
+  );
+}
+
+function FilterEmptyState({ filters, count, onClearFilters, noun = "buildings" }) {
+  if (hasActiveDashboardFilters(filters)) {
+    return (
+      <div className="empty-filtered">
+        <p>
+          No matches — {count} {noun} hidden by your filters.
+        </p>
+        <button type="button" className="btn btn-ghost btn-small" onClick={onClearFilters}>
+          Clear filters
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="empty-filtered">
+      <p>No matches. Try enabling “Show hidden buildings & units”.</p>
+    </div>
   );
 }

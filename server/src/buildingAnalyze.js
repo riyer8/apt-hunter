@@ -1,5 +1,11 @@
+import { isTerminalBuildingStatus } from "../../shared/buildingProfile.js";
 import { query } from "./db.js";
-import { createBuildingIntelligence, htmlToText } from "./buildingIntelligence.js";
+import { createBuildingIntelligence } from "./buildingIntelligence.js";
+import { gatherBuildingResearch } from "./buildingResearch.js";
+import {
+  BUILDING_PROFILE_SYSTEM_PROMPT,
+  buildBuildingProfileUserPrompt,
+} from "./buildingProfilePrompt.js";
 import { toApiBuildingProfile } from "./serialize.js";
 
 const inflight = new Set();
@@ -102,7 +108,7 @@ const intelligence = createBuildingIntelligence({
   loadProfile: async (id) => toApiBuildingProfile(await loadBuildingProfileRow(id)),
   saveProfile: saveBuildingProfile,
   saveHistory: async (id, existing) => saveBuildingProfileHistory(id, existing),
-  gather: gatherBuildingSources,
+  gather: gatherBuildingResearch,
   complete: completeWithOpenAI,
 });
 
@@ -114,7 +120,7 @@ export function queueBuildingAnalysis(apartment, { force = false } = {}) {
   const row = typeof apartment === "object" ? apartment : { id };
   Promise.resolve()
     .then(async () => {
-      const full = row.source_url || row.url ? row : (await query("SELECT * FROM apartments WHERE id = $1", [id])).rows[0];
+      const full = row.name ? row : (await query("SELECT * FROM apartments WHERE id = $1", [id])).rows[0];
       if (!full) return;
       await intelligence.analyze(full, { force });
     })
@@ -130,11 +136,35 @@ export async function reanalyzeBuilding(apartment) {
   return toApiBuildingProfile(await loadBuildingProfileRow(apartment.id));
 }
 
+export async function maybeStartBuildingProfileOnFirstScrape(apartment) {
+  const id = apartment?.id || apartment;
+  if (!id) return;
+
+  const success = await query(
+    `SELECT COUNT(*)::int AS count
+     FROM scrape_runs
+     WHERE apartment_id = $1 AND status = 'success'`,
+    [id],
+  );
+  if (success.rows[0]?.count !== 1) return;
+
+  const existing = await loadBuildingProfileRow(id);
+  if (existing && (isTerminalBuildingStatus(existing.status) || existing.status === "running")) return;
+
+  await insertPendingBuildingProfile(id);
+  queueBuildingAnalysis(apartment);
+}
+
 export async function backfillMissingBuildingProfiles() {
   const hasOpenAi = Boolean(process.env.OPENAI_API_KEY);
   const result = await query(
     `SELECT a.*
      FROM apartments a
+     INNER JOIN (
+       SELECT DISTINCT apartment_id
+       FROM scrape_runs
+       WHERE status = 'success'
+     ) scraped ON scraped.apartment_id = a.id
      LEFT JOIN building_profiles p ON p.apartment_id = a.id
      WHERE p.apartment_id IS NULL
         OR p.status IN ('pending', 'running')
@@ -164,79 +194,13 @@ export async function listBuildingProfileHistory(apartmentId) {
   }));
 }
 
-async function gatherBuildingSources(apartment) {
-  const sources = [];
-  const url = apartment.source_url || apartment.url;
-  if (url) {
-    const text = await fetchPageText(url);
-    if (text) sources.push({ url, title: "Official / availability page", text });
-  }
-  if (apartment.location) {
-    sources.push({
-      url: "aptwatch:location",
-      title: "Stored location",
-      text: `Neighborhood/location recorded in AptWatch: ${apartment.location}`,
-    });
-  }
-  return sources;
-}
-
-async function fetchPageText(url) {
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: { "User-Agent": "AptWatch/1.0 (building research)" },
-    });
-    clearTimeout(timer);
-    if (!response.ok) return null;
-    const html = await response.text();
-    return htmlToText(html).slice(0, 18000);
-  } catch {
-    return null;
-  }
-}
-
 async function completeWithOpenAI({ apartment, sources }) {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return { skipped: true };
 
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-  const sourceBlock = (sources || [])
-    .map((item) => `SOURCE ${item.title || ""} (${item.url || ""})\n${item.text || ""}`)
-    .join("\n\n")
-    .slice(0, 24000);
-
-  const prompt = `You research apartment BUILDINGS, not individual units.
-Building name: ${apartment.name}
-Official URL: ${apartment.source_url || apartment.url || ""}
-Location: ${apartment.location || "unknown"}
-
-Use ONLY the sources below. Do not invent a construction year. If a year is not explicitly present in the sources, set facts.yearBuilt to null.
-If you cannot justify a 0-10 score from the sources, set insufficient=true and score=null.
-
-Return JSON:
-{
-  "facts": {
-    "yearBuilt": number or null,
-    "yearBuiltEvidence": "short quote or null",
-    "walkScore": number or null,
-    "stories": number or null,
-    "neighborhood": "string or null",
-    "amenities": ["gym","pool","rooftop","lounge","coworking","parking","packageRoom","concierge","laundry","outdoor","elevator","airConditioning"]
-  },
-  "judgments": {
-    "safety": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote" },
-    "walkability": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote" },
-    "viewsSun": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote" },
-    "amenities": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote" }
-  },
-  "summary": "2-4 sentences about the BUILDING. Do not claim a specific unit has a view."
-}
-
-SOURCES:
-${sourceBlock || "(no pages fetched)"}`;
+  const prompt = buildBuildingProfileUserPrompt(apartment, sources);
+  const hasSources = (sources || []).some((item) => String(item.text || "").trim().length > 80);
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -246,10 +210,10 @@ ${sourceBlock || "(no pages fetched)"}`;
     },
     body: JSON.stringify({
       model,
-      temperature: 0.2,
+      temperature: 0.35,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: "You extract building facts and cautious scores. Never fabricate years or amenities." },
+        { role: "system", content: BUILDING_PROFILE_SYSTEM_PROMPT },
         { role: "user", content: prompt },
       ],
     }),
@@ -266,5 +230,5 @@ ${sourceBlock || "(no pages fetched)"}`;
   } catch {
     raw = {};
   }
-  return { model, raw };
+  return { model, raw, trustModelFacts: !hasSources };
 }

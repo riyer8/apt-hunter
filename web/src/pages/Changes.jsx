@@ -48,7 +48,7 @@ export default function Changes() {
               <option value="">All types</option>
               {CHANGE_TYPES.map((key) => (
                 <option key={key} value={key}>
-                  {changeMeta(key).emoji} {changeMeta(key).label}
+                  {changeMeta(key).label}
                 </option>
               ))}
             </select>
@@ -71,9 +71,7 @@ export default function Changes() {
         {CHANGE_TYPES.map((key) => (
           <div className="stat" key={key}>
             <div className="stat-value">{ready ? counts[key] : "—"}</div>
-            <div className="stat-label">
-              {changeMeta(key).emoji} {changeMeta(key).label}
-            </div>
+            <div className="stat-label">{changeMeta(key).label}</div>
           </div>
         ))}
       </section>
@@ -88,9 +86,7 @@ export default function Changes() {
             const meta = changeMeta(change.changeType);
             return (
               <article key={change.id} className="change-row">
-                <span className={`badge ${meta.className}`}>
-                  {meta.emoji} {meta.label}
-                </span>
+                <span className={`badge ${meta.className}`}>{meta.label}</span>
                 <div>
                   <h2 className="change-title">
                     {change.apartmentName}

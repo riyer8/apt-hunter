@@ -98,9 +98,11 @@ export default function ApartmentDetail() {
                     type="button"
                     className="btn btn-primary"
                     disabled={Boolean(busy)}
-                    onClick={() => run("analyze", () => analyzeApartment(apartment))}
+                    onClick={() =>
+                      run("scrape", () => (source === "api" ? scrapeNow(apartment.id) : analyzeApartment(apartment)))
+                    }
                   >
-                    {busy === "analyze" ? "Analyzing…" : "Analyze"}
+                    {busy === "scrape" || busy === "analyze" ? "Refreshing…" : "Refresh listings"}
                   </button>
                   <button
                     type="button"
@@ -118,16 +120,6 @@ export default function ApartmentDetail() {
                   >
                     Pause monitoring
                   </button>
-                  {source === "api" ? (
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      disabled={Boolean(busy)}
-                      onClick={() => run("scrape", () => scrapeNow(apartment.id))}
-                    >
-                      {busy === "scrape" ? "Scraping…" : "Scrape now"}
-                    </button>
-                  ) : null}
                 </>
               ) : null}
               <a className="btn btn-ghost" href={apartment.url} target="_blank" rel="noreferrer">

@@ -2,17 +2,17 @@ import { isNewListing, isPriceDrop } from "@shared/listingView.js";
 import { formatAvailableShort, formatPriceShort } from "./format.js";
 
 export const CHANGE_META = {
-  NEW: { emoji: "🆕", label: "NEW", className: "change-new" },
-  PRICE_DROP: { emoji: "💰", label: "PRICE DROP", className: "change-drop" },
-  PRICE_INCREASE: { emoji: "📈", label: "PRICE INCREASE", className: "change-up" },
-  AVAILABILITY_CHANGED: { emoji: "📅", label: "AVAILABILITY CHANGED", className: "change-date" },
-  REMOVED: { emoji: "❌", label: "REMOVED", className: "change-removed" },
+  NEW: { label: "New", className: "change-new" },
+  PRICE_DROP: { label: "Price drop", className: "change-drop" },
+  PRICE_INCREASE: { label: "Price increase", className: "change-up" },
+  AVAILABILITY_CHANGED: { label: "Availability changed", className: "change-date" },
+  REMOVED: { label: "Removed", className: "change-removed" },
 };
 
 export const CHANGE_TYPES = Object.keys(CHANGE_META);
 
 export function changeMeta(type) {
-  return CHANGE_META[type] || { emoji: "•", label: type || "Change", className: "" };
+  return CHANGE_META[type] || { label: type || "Change", className: "" };
 }
 
 export function emptyChangeSummary() {

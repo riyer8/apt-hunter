@@ -50,13 +50,10 @@ export function createBuildingIntelligence({
         sourcesText,
         nowYear: typeof nowYear === "function" ? nowYear() : nowYear,
         model: completion?.model || null,
+        trustModelFacts: completion?.trustModelFacts === true,
       });
       finalized.analyzedAt = new Date().toISOString();
       finalized.analysisVersion = nextVersion(existing, force);
-      if (!sourcesText.trim() && finalized.status === "complete") {
-        finalized.status = "insufficient";
-        finalized.summary = "Insufficient evidence";
-      }
 
       await saveProfile(apartment.id, finalized);
       return { ran: true, reason: "analyzed", profile: finalized };
@@ -103,14 +100,4 @@ export function createBuildingIntelligence({
   }
 
   return { analyze };
-}
-
-export function htmlToText(html) {
-  return String(html || "")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }

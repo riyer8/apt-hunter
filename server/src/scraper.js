@@ -141,7 +141,7 @@ async function loadAnalyzer() {
   return classifyModule;
 }
 
-async function getBrowser() {
+export async function getBrowser() {
   if (!browserPromise) {
     browserPromise = launchBrowser();
   }
