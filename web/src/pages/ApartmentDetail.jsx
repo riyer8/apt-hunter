@@ -7,14 +7,14 @@ import { apartmentChangeSummary } from "../lib/changes.js";
 import { formatClock, formatDateTime, formatRelativeTime } from "../lib/format.js";
 import { monitorMeta } from "../lib/status.js";
 import { listScrapeHistory } from "../api/apartments.js";
-import Shell from "../components/Shell.jsx";
-import FilterBar from "../components/FilterBar.jsx";
-import ListingsTable from "../components/ListingsTable.jsx";
-import AlertPrefsForm from "../components/AlertPrefsForm.jsx";
-import BuildingProfilePanel from "../components/BuildingProfilePanel.jsx";
-import ApartmentSelectionActions, { SelectionBadges } from "../components/ApartmentSelectionActions.jsx";
-import EditApartmentModal from "../components/EditApartmentModal.jsx";
-import ScrapeProgressBanner from "../components/ScrapeProgressBanner.jsx";
+import Shell from "../components/layout/Shell.jsx";
+import FilterBar from "../components/listings/FilterBar.jsx";
+import ListingsTable from "../components/listings/ListingsTable.jsx";
+import AlertPrefsForm from "../components/apartments/AlertPrefsForm.jsx";
+import BuildingProfilePanel from "../components/building/BuildingProfilePanel.jsx";
+import ApartmentSelectionActions, { SelectionBadges } from "../components/apartments/ApartmentSelectionActions.jsx";
+import EditApartmentModal from "../components/apartments/EditApartmentModal.jsx";
+import ScrapeProgressBanner from "../components/common/ScrapeProgressBanner.jsx";
 
 export default function ApartmentDetail() {
   const { id } = useParams();

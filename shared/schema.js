@@ -1,7 +1,7 @@
 /**
  * Canonical AptWatch models.
- * Keep this in sync with src/analyzer/listings.js createListing()
- * and src/lib/storage.js apartment records.
+ * Keep this in sync with extension/analyzer/listings.js createListing()
+ * and extension/lib/storage.js apartment records.
  *
  * The web dashboard must consume this shape. Do not invent a parallel format.
  */

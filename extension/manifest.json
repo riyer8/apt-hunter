@@ -7,7 +7,7 @@
   "host_permissions": ["http://*/*", "https://*/*"],
   "action": {
     "default_title": "AptWatch",
-    "default_popup": "src/popup/popup.html",
+    "default_popup": "popup/popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -20,13 +20,13 @@
     "128": "icons/icon128.png"
   },
   "background": {
-    "service_worker": "src/background/background.js",
+    "service_worker": "background/background.js",
     "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["http://localhost:5173/*", "http://127.0.0.1:5173/*"],
-      "js": ["src/bridge/pageBridge.js"],
+      "js": ["bridge/pageBridge.js"],
       "run_at": "document_start"
     }
   ]

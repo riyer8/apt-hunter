@@ -12,14 +12,14 @@ import { apartmentVisible, apartmentIncludedInListings, hasActiveDashboardFilter
 import { formatPrice, formatRelativeTime, listingTitle, parseIsoTime } from "../lib/format.js";
 import { cycleSort, usePersistentFilters } from "../hooks/usePersistentFilters.js";
 import { SF_BUILDINGS } from "@shared/sfBuildings.js";
-import Shell from "../components/Shell.jsx";
-import FilterBar from "../components/FilterBar.jsx";
-import ApartmentCard from "../components/ApartmentCard.jsx";
-import CuratedUnitsSection from "../components/CuratedUnitsSection.jsx";
-import CollapsibleSection from "../components/CollapsibleSection.jsx";
+import Shell from "../components/layout/Shell.jsx";
+import FilterBar from "../components/listings/FilterBar.jsx";
+import ApartmentCard from "../components/apartments/ApartmentCard.jsx";
+import CuratedUnitsSection from "../components/listings/CuratedUnitsSection.jsx";
+import CollapsibleSection from "../components/common/CollapsibleSection.jsx";
 import { summarizeBuildings } from "../lib/dashboardSummaries.js";
-import ListingsTable from "../components/ListingsTable.jsx";
-import AddApartmentModal from "../components/AddApartmentModal.jsx";
+import ListingsTable from "../components/listings/ListingsTable.jsx";
+import AddApartmentModal from "../components/apartments/AddApartmentModal.jsx";
 
 export default function Dashboard() {
   const {

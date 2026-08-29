@@ -1,12 +1,12 @@
 import { Link } from "react-router-dom";
-import { apartmentChangeSummary } from "../lib/changes.js";
-import { formatRelativeTime, formatUntil } from "../lib/format.js";
-import { matchingListings } from "../lib/filters.js";
-import { changeCount, monitorMeta } from "../lib/status.js";
-import { useApartments } from "../state/ApartmentContext.jsx";
-import { OverallScore } from "./BuildingScores.jsx";
+import { apartmentChangeSummary } from "../../lib/changes.js";
+import { formatRelativeTime, formatUntil } from "../../lib/format.js";
+import { matchingListings } from "../../lib/filters.js";
+import { changeCount, monitorMeta } from "../../lib/status.js";
+import { useApartments } from "../../state/ApartmentContext.jsx";
+import { OverallScore } from "../building/BuildingScores.jsx";
 import ApartmentSelectionActions, { SelectionBadges } from "./ApartmentSelectionActions.jsx";
-import ScrapeProgressBanner from "./ScrapeProgressBanner.jsx";
+import ScrapeProgressBanner from "../common/ScrapeProgressBanner.jsx";
 
 export default function ApartmentCard({
   apartment,

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
  * Batch audit: can AptWatch extract listings from each URL?
- * Usage: node scripts/scrape-audit.mjs [--name=Building] [--limit=N]
+ * Usage: node scripts/audit/scrape-audit.mjs [--name=Building] [--limit=N]
  */
 import { writeFileSync } from "node:fs";
-import { scrapeApartment, closeBrowser } from "../server/src/scraper.js";
+import { scrapeApartment, closeBrowser } from "../../server/src/scraper.js";
 
-import SF_BUILDINGS from "../data/sf-buildings.json" with { type: "json" };
+import SF_BUILDINGS from "../../data/sf-buildings.json" with { type: "json" };
 
 const args = process.argv.slice(2);
 const only = args.find((a) => a.startsWith("--name="))?.slice(7);
@@ -17,7 +17,7 @@ if (only) targets = SF_BUILDINGS.filter((b) => b.name.toLowerCase().includes(onl
 if (limit > 0) targets = targets.slice(0, limit);
 
 const results = [];
-const resultsPath = new URL("../data/scrape-audit-results.json", import.meta.url);
+const resultsPath = new URL("../../data/scrape-audit-results.json", import.meta.url);
 
 for (const building of targets) {
   const started = Date.now();

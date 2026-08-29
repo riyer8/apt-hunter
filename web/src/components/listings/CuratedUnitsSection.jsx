@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import CollapsibleSection from "./CollapsibleSection.jsx";
-import { summarizeListings } from "../lib/dashboardSummaries.js";
+import CollapsibleSection from "../common/CollapsibleSection.jsx";
+import { summarizeListings } from "../../lib/dashboardSummaries.js";
 import ListingCard from "./ListingCard.jsx";
 
 export default function CuratedUnitsSection({

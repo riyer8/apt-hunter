@@ -2,20 +2,20 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
-import { classify } from "../src/analyzer/classify.js";
-import { buildDiagnosticReport, diagnose } from "../src/analyzer/diagnostics.js";
+import { classify } from "../../extension/analyzer/classify.js";
+import { buildDiagnosticReport, diagnose } from "../../extension/analyzer/diagnostics.js";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
 const PAGE_SCRIPTS = [
-  "src/analyzer/page/namespace.js",
-  "src/analyzer/page/fields.js",
-  "src/analyzer/page/extractors/json.js",
-  "src/analyzer/page/extractors/jsData.js",
-  "src/analyzer/page/extractors/html.js",
-  "src/analyzer/page/extractors/text.js",
-  "src/analyzer/page/extractors/api.js",
-  "src/analyzer/page/run.js",
+  "extension/analyzer/page/namespace.js",
+  "extension/analyzer/page/fields.js",
+  "extension/analyzer/page/extractors/json.js",
+  "extension/analyzer/page/extractors/jsData.js",
+  "extension/analyzer/page/extractors/html.js",
+  "extension/analyzer/page/extractors/text.js",
+  "extension/analyzer/page/extractors/api.js",
+  "extension/analyzer/page/run.js",
 ];
 
 export function extractFromHtml(html, { url, apartmentName }) {
@@ -27,7 +27,7 @@ export function extractFromHtml(html, { url, apartmentName }) {
     },
   });
 
-  for (const file of [...PAGE_SCRIPTS, "src/analyzer/page/pageState.js"]) {
+  for (const file of [...PAGE_SCRIPTS, "extension/analyzer/page/pageState.js"]) {
     window.eval(readFileSync(join(root, file), "utf8"));
   }
 

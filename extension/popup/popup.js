@@ -1,4 +1,4 @@
-import { listingMatchesFilters, sortListings } from "../../shared/listingView.js";
+import { listingMatchesFilters, sortListings } from "../../../shared/listingView.js";
 import {
   addApartment,
   clearLastTestExtraction,

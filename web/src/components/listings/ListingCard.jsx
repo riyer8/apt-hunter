@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 import { isNewListing, isPriceDrop, priceDropAmount } from "@shared/listingView.js";
-import { formatAvailable, formatPrice, listingTitle, specLine } from "../lib/format.js";
+import { formatAvailable, formatPrice, listingTitle, specLine } from "../../lib/format.js";
 import MatchBadge, { MatchDetails } from "./MatchBadge.jsx";
-import BuildingScores, { BuildingNameLink } from "./BuildingScores.jsx";
+import BuildingScores, { BuildingNameLink } from "../building/BuildingScores.jsx";
 import ListingSelectionActions, { ListingSelectionBadges } from "./ListingSelectionActions.jsx";
 
 export default function ListingCard({

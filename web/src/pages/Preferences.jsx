@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { defaultUserPrefs, cleanSearchName, displaySearchLabel, hasCustomSearchName, normalizePreferenceBundle } from "@shared/match.js";
 import { useApartments } from "../state/ApartmentContext.jsx";
 import * as api from "../api/apartments.js";
-import Shell from "../components/Shell.jsx";
-import PreferencesForm from "../components/PreferencesForm.jsx";
+import Shell from "../components/layout/Shell.jsx";
+import PreferencesForm from "../components/common/PreferencesForm.jsx";
 
 export default function Preferences() {
   const { source, preferences, savePreferences } = useApartments();

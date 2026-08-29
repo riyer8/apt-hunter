@@ -95,7 +95,7 @@ Open http://localhost:5173/.
 ## Run the extension
 
 1. Start Postgres and the API.
-2. chrome://extensions → Developer mode → Load unpacked → this repo folder.
+2. chrome://extensions → Developer mode → Load unpacked → `extension/` folder.
 3. Click AptWatch → add a name and URL (writes local storage **and** `POST /apartments`).
 4. Click Analyze (runs the existing scraper, then `POST /apartments/:id/scrape`).
 5. Open Dashboard to see the same rows from the database.

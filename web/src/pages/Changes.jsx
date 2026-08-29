@@ -4,7 +4,7 @@ import { listChanges } from "../api/apartments.js";
 import { useApartments } from "../state/ApartmentContext.jsx";
 import { CHANGE_TYPES, changeMeta, formatChangeValues } from "../lib/changes.js";
 import { formatRelativeTime } from "../lib/format.js";
-import Shell from "../components/Shell.jsx";
+import Shell from "../components/layout/Shell.jsx";
 
 export default function Changes() {
   const { apartments, loading, source } = useApartments();

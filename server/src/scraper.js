@@ -6,17 +6,17 @@ import { getScheduleConfig } from "./schedule.js";
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
 const EXTRACTOR_FILES = [
-  "src/analyzer/page/namespace.js",
-  "src/analyzer/page/fields.js",
-  "src/analyzer/page/extractors/json.js",
-  "src/analyzer/page/extractors/jsData.js",
-  "src/analyzer/page/extractors/html.js",
-  "src/analyzer/page/extractors/text.js",
-  "src/analyzer/page/extractors/api.js",
-  "src/analyzer/page/run.js",
+  "extension/analyzer/page/namespace.js",
+  "extension/analyzer/page/fields.js",
+  "extension/analyzer/page/extractors/json.js",
+  "extension/analyzer/page/extractors/jsData.js",
+  "extension/analyzer/page/extractors/html.js",
+  "extension/analyzer/page/extractors/text.js",
+  "extension/analyzer/page/extractors/api.js",
+  "extension/analyzer/page/run.js",
 ];
 
-const PAGE_STATE = "src/analyzer/page/pageState.js";
+const PAGE_STATE = "extension/analyzer/page/pageState.js";
 const LOAD_TIMEOUT_MS = 45000;
 const RENDER_WAIT_MS = 6000;
 const RETRY_WAIT_MS = 4000;
@@ -143,9 +143,9 @@ async function injectScripts(frame) {
 
 async function loadAnalyzer() {
   if (classifyModule) return classifyModule;
-  const classifyUrl = pathToFileURL(join(root, "src/analyzer/classify.js")).href;
-  const diagnosticsUrl = pathToFileURL(join(root, "src/analyzer/diagnostics.js")).href;
-  const listingsUrl = pathToFileURL(join(root, "src/analyzer/listings.js")).href;
+  const classifyUrl = pathToFileURL(join(root, "extension/analyzer/classify.js")).href;
+  const diagnosticsUrl = pathToFileURL(join(root, "extension/analyzer/diagnostics.js")).href;
+  const listingsUrl = pathToFileURL(join(root, "extension/analyzer/listings.js")).href;
   const [{ classify }, { diagnose }, { nullsToNull }] = await Promise.all([
     import(classifyUrl),
     import(diagnosticsUrl),

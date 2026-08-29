@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { formatRelativeTime } from "../lib/format.js";
-import { browserPermissionDecision } from "../lib/notifyPermission.js";
-import * as api from "../api/apartments.js";
+import { formatRelativeTime } from "../../lib/format.js";
+import { browserPermissionDecision } from "../../lib/notifyPermission.js";
+import * as api from "../../api/apartments.js";
 
 const ASKED_KEY = "aptwatch.notificationPermissionAsked";
 

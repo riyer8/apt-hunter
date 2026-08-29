@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { isValidHttpUrl } from "../lib/format.js";
+import { isValidHttpUrl } from "../../lib/format.js";
 
 export default function AddApartmentModal({ onClose, onAdd }) {
   const [name, setName] = useState("");

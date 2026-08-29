@@ -5,9 +5,9 @@ import {
   formatBedsBathsShort,
   formatPriceShort,
   listingTitle,
-} from "../lib/format.js";
+} from "../../lib/format.js";
 import MatchBadge from "./MatchBadge.jsx";
-import { BuildingNameLink, OverallScore } from "./BuildingScores.jsx";
+import { BuildingNameLink, OverallScore } from "../building/BuildingScores.jsx";
 import ListingSelectionActions from "./ListingSelectionActions.jsx";
 
 const COLUMNS = [

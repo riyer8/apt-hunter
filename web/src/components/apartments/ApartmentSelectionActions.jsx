@@ -1,4 +1,4 @@
-import SelectionActions, { SelectionBadges as SelectionBadgesBase } from "./SelectionActions.jsx";
+import SelectionActions, { SelectionBadges as SelectionBadgesBase } from "../common/SelectionActions.jsx";
 
 export default function ApartmentSelectionActions(props) {
   return <SelectionActions {...props} item={props.apartment || props.item} />;

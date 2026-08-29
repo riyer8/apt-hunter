@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import * as api from "../api/apartments.js";
+import * as api from "../../api/apartments.js";
 
 export default function AlertPrefsForm({ apartmentId, initial }) {
   const [prefs, setPrefs] = useState(

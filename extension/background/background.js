@@ -16,14 +16,14 @@ import {
 import { startAlertPolling } from "./alerts.js";
 
 const EXTRACTOR_FILES = [
-  "src/analyzer/page/namespace.js",
-  "src/analyzer/page/fields.js",
-  "src/analyzer/page/extractors/json.js",
-  "src/analyzer/page/extractors/jsData.js",
-  "src/analyzer/page/extractors/html.js",
-  "src/analyzer/page/extractors/text.js",
-  "src/analyzer/page/extractors/api.js",
-  "src/analyzer/page/run.js",
+  "analyzer/page/namespace.js",
+  "analyzer/page/fields.js",
+  "analyzer/page/extractors/json.js",
+  "analyzer/page/extractors/jsData.js",
+  "analyzer/page/extractors/html.js",
+  "analyzer/page/extractors/text.js",
+  "analyzer/page/extractors/api.js",
+  "analyzer/page/run.js",
 ];
 
 const LOAD_TIMEOUT_MS = 45000;
@@ -274,12 +274,12 @@ async function extractCandidatesFromTab(tabId) {
   await chrome.scripting.executeScript({
     target: { tabId, allFrames: true },
     world: "MAIN",
-    files: ["src/analyzer/page/pageState.js"],
+    files: ["analyzer/page/pageState.js"],
   }).catch(() =>
     chrome.scripting.executeScript({
       target: { tabId },
       world: "MAIN",
-      files: ["src/analyzer/page/pageState.js"],
+      files: ["analyzer/page/pageState.js"],
     }),
   );
 
