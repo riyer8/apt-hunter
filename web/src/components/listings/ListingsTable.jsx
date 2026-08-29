@@ -29,6 +29,7 @@ export default function ListingsTable({
   showBuilding = false,
   onSelectionChange,
   selectionBusyId = "",
+  highlightUnit = "",
 }) {
   const columns = COLUMNS.filter((column) => showBuilding || column.key !== "building");
   const resolvedDir = sortDir || (DESC_SORT_KEYS.has(sortKey) ? "desc" : "asc");
@@ -76,13 +77,22 @@ export default function ListingsTable({
               unitLabel
             );
 
-            const rowClass = inactive
-              ? "listing-row-inactive"
-              : listing.isFavorite
-                ? "listing-row-favorite"
-                : listing.isWatchlisted
-                  ? "listing-row-watchlist"
-                  : undefined;
+            const rowClass = [
+              inactive
+                ? "listing-row-inactive"
+                : isNew
+                  ? "listing-row-new"
+                  : drop
+                    ? "listing-row-drop"
+                    : listing.isFavorite
+                      ? "listing-row-favorite"
+                      : listing.isWatchlisted
+                        ? "listing-row-watchlist"
+                        : "",
+              highlightUnit && String(listing.unit || "") === String(highlightUnit) ? "listing-row-highlight" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
 
             return (
               <tr key={listing.id || `${listing.apartmentId}-${unitLabel}`} className={rowClass}>

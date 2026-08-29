@@ -1,7 +1,13 @@
+import { launcherStatus, requestDevStart } from "./devLauncher.js";
+
 const DEFAULT_API_URL = "http://127.0.0.1:8787";
 
 export function getApiUrl() {
   return DEFAULT_API_URL;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function apiAvailable() {
@@ -14,6 +20,31 @@ export async function apiAvailable() {
   } catch {
     return false;
   }
+}
+
+/**
+ * Wait for the API (starting dev via the local launcher if needed), then wake jobs.
+ * Returns: ready | no-launcher | timeout
+ */
+export async function ensureBackendReady({ maxWaitMs = 45000 } = {}) {
+  const deadline = Date.now() + maxWaitMs;
+
+  while (Date.now() < deadline) {
+    if (await apiAvailable()) {
+      try {
+        await apiRequest("/wake", { method: "POST" });
+      } catch {
+        // Wake is best-effort once health succeeds.
+      }
+      return "ready";
+    }
+
+    await requestDevStart();
+    await sleep(1000);
+  }
+
+  if (await apiAvailable()) return "ready";
+  return (await launcherStatus()) ? "timeout" : "no-launcher";
 }
 
 export async function apiRequest(path, { method = "GET", body } = {}) {

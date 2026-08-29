@@ -191,7 +191,7 @@ describe("decideNotification", () => {
       listing: { ...listing, listingUrl: null, apartmentId: "apt-george" },
       prefs,
     });
-    assert.equal(notificationClickUrl(noUrl.notification), "http://localhost:5173/apartments/apt-george");
+    assert.equal(notificationClickUrl(noUrl.notification), "http://localhost:5173/apartments/apt-george?unit=1204");
   });
 
   it("10. marking a notification as read sets read_at", () => {

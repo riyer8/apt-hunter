@@ -11,9 +11,13 @@ Dashboard in the popup opens the website
 
 ### Backend
 
+One-time setup so the extension can start the backend when you open it:
+
+```bash
+npm run launcher:install
 ```
-npm run dev
-```
+
+After that, opening the extension starts Postgres/API/dashboard automatically. You can also run `npm run launcher` manually, or `npm run dev` as before.
 
 ## CI
 

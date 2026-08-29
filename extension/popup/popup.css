@@ -40,6 +40,32 @@ header {
   gap: 12px;
 }
 
+.backend-status {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.backend-status[data-state="starting"] {
+  color: #5c4b1a;
+  background: #fff8e6;
+  border: 1px solid #f0e0a8;
+}
+
+.backend-status[data-state="ready"] {
+  color: var(--accent);
+  background: #eef6f4;
+  border: 1px solid #c8e0db;
+}
+
+.backend-status[data-state="error"] {
+  color: var(--error);
+  background: #fff3f3;
+  border: 1px solid #f0c8c8;
+}
+
 .header-actions {
   display: flex;
   align-items: center;

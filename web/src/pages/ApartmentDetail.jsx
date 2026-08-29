@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { listingMatchesFilters, sortListingsWithCuratedPriority } from "@shared/listingView.js";
 import { useApartments } from "../state/ApartmentContext.jsx";
 import { cycleSort, usePersistentFilters } from "../hooks/usePersistentFilters.js";
 import { apartmentChangeSummary } from "../lib/changes.js";
 import { formatClock, formatDateTime, formatRelativeTime } from "../lib/format.js";
 import { monitorMeta } from "../lib/status.js";
+import { EMPTY_FILTERS } from "../lib/filters.js";
 import { listScrapeHistory } from "../api/apartments.js";
 import Shell from "../components/layout/Shell.jsx";
 import FilterBar from "../components/listings/FilterBar.jsx";
@@ -18,6 +19,8 @@ import ScrapeProgressBanner from "../components/common/ScrapeProgressBanner.jsx"
 
 export default function ApartmentDetail() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const focusUnit = searchParams.get("unit");
   const navigate = useNavigate();
   const {
     apartments,
@@ -48,9 +51,22 @@ export default function ApartmentDetail() {
 
   const listings = useMemo(() => {
     if (!apartment) return [];
-    const filtered = (apartment.listings || []).filter((listing) => listingMatchesFilters(listing, filters));
+    const all = apartment.listings || [];
+    let filtered = all.filter((listing) => listingMatchesFilters(listing, filters));
+    if (focusUnit) {
+      const focused = all.find((listing) => String(listing.unit || "") === focusUnit);
+      if (focused && !filtered.some((listing) => listing.id === focused.id)) {
+        filtered = [focused, ...filtered];
+      }
+    }
     return sortListingsWithCuratedPriority(filtered, filters.sort, filters.sortDir);
-  }, [apartment, filters]);
+  }, [apartment, filters, focusUnit]);
+
+  const focusHiddenByFilters = useMemo(() => {
+    if (!apartment || !focusUnit) return false;
+    const focused = (apartment.listings || []).find((listing) => String(listing.unit || "") === focusUnit);
+    return Boolean(focused && !listingMatchesFilters(focused, filters));
+  }, [apartment, filters, focusUnit]);
 
   useEffect(() => {
     if (!id || source !== "api") return undefined;
@@ -227,15 +243,34 @@ export default function ApartmentDetail() {
 
           <FilterBar filters={filters} onChange={setFilters} showSort />
 
+          {focusHiddenByFilters ? (
+            <p className="filter-notice">
+              Unit {focusUnit} is hidden by your dashboard filters.{" "}
+              <button type="button" className="text-link" onClick={() => setFilters({ ...EMPTY_FILTERS })}>
+                Clear filters
+              </button>
+            </p>
+          ) : null}
+
           {listings.length === 0 ? (
             <div className="empty">
-              {apartment.listings.length === 0 ? "None" : "No matches"}
+              {apartment.listings.length === 0 ? (
+                "None"
+              ) : (
+                <div className="empty-filtered">
+                  <p>No matches — {apartment.listings.length} units hidden by filters.</p>
+                  <button type="button" className="btn btn-ghost btn-small" onClick={() => setFilters({ ...EMPTY_FILTERS })}>
+                    Clear filters
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <ListingsTable
               listings={listings}
               sortKey={filters.sort}
               sortDir={filters.sortDir}
+              highlightUnit={focusUnit}
               onSort={(key) => setFilters(cycleSort(filters, key))}
               onSelectionChange={
                 canManage

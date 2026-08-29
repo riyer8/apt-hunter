@@ -1,4 +1,4 @@
-import { listingMatchesFilters, sortListings } from "../../../shared/listingView.js";
+import { listingMatchesFilters, sortListings } from "../shared/listingView.js";
 import {
   addApartment,
   clearLastTestExtraction,
@@ -14,6 +14,7 @@ import {
   setDiagnosticsMode,
   syncFromBackend,
 } from "../lib/storage.js";
+import { ensureBackendReady } from "../lib/backend.js";
 
 const form = document.getElementById("add-form");
 const nameInput = document.getElementById("name-input");
@@ -30,6 +31,7 @@ const testButton = document.getElementById("test-extract-button");
 const clearTestButton = document.getElementById("clear-test-button");
 const testError = document.getElementById("test-error");
 const testReport = document.getElementById("test-report");
+const backendStatus = document.getElementById("backend-status");
 
 const DASHBOARD_LOCAL = "http://localhost:5173/";
 const listingsByApartment = new Map();
@@ -148,7 +150,16 @@ apartmentList.addEventListener("change", (event) => {
 });
 
 dashboardButton.addEventListener("click", async () => {
-  chrome.tabs.create({ url: await resolveDashboardUrl() });
+  dashboardButton.disabled = true;
+  const label = dashboardButton.textContent;
+  dashboardButton.textContent = "Starting…";
+  try {
+    await ensureBackendReady({ maxWaitMs: 60000 });
+    chrome.tabs.create({ url: await resolveDashboardUrl() });
+  } finally {
+    dashboardButton.disabled = false;
+    dashboardButton.textContent = label;
+  }
 });
 
 diagnosticsToggle.addEventListener("change", async () => {
@@ -253,17 +264,20 @@ function escapeAttr(value) {
 }
 
 async function resolveDashboardUrl() {
-  const packed = chrome.runtime.getURL("web/dist/index.html");
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 500);
-    const response = await fetch(DASHBOARD_LOCAL, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (response.ok) return DASHBOARD_LOCAL;
-  } catch {
-    // Use the packaged dashboard if Vite isn't running.
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 500);
+      const response = await fetch(DASHBOARD_LOCAL, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (response.ok) return DASHBOARD_LOCAL;
+    } catch {
+      // Vite may still be starting after the API comes up.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
-  return packed;
+  return DASHBOARD_LOCAL;
 }
 
 function sortHeader(key, label, state, numeric) {
@@ -642,11 +656,37 @@ async function renderTestReport({ reveal = false } = {}) {
   testReport.append(renderDiagnosticReport(report, { showCopy: true, showEvidence: true }));
 }
 
+function setBackendStatus(state, message) {
+  if (!backendStatus) return;
+  backendStatus.hidden = state === "hidden";
+  backendStatus.dataset.state = state;
+  backendStatus.textContent = message;
+}
+
+async function connectBackend() {
+  setBackendStatus("starting", "Starting backend…");
+  const result = await ensureBackendReady();
+  if (result === "ready") {
+    setBackendStatus("ready", "Backend connected");
+    window.setTimeout(() => setBackendStatus("hidden"), 2000);
+    return;
+  }
+  if (result === "timeout") {
+    setBackendStatus("error", "Backend is still starting — give it a moment, then reopen the popup.");
+    return;
+  }
+  setBackendStatus(
+    "error",
+    "Run npm run launcher:install once (or npm run launcher in a terminal) so AptWatch can start the backend.",
+  );
+}
+
 async function init() {
   tablePrefs = await getUiPrefs();
   diagnosticsMode = await getDiagnosticsMode();
   diagnosticsToggle.checked = diagnosticsMode;
   document.body.classList.toggle("diagnostics-on", diagnosticsMode);
+  await connectBackend();
   await syncFromBackend();
   await renderApartments();
   await renderTestReport();

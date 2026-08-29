@@ -13,6 +13,7 @@ import {
   reportScrapeToBackend,
   syncFromBackend,
 } from "../lib/storage.js";
+import { ensureBackendReady } from "../lib/backend.js";
 import { startAlertPolling } from "./alerts.js";
 
 const EXTRACTOR_FILES = [
@@ -36,13 +37,16 @@ const analyzing = new Set();
 chrome.runtime.onInstalled.addListener(() => {
   console.log("AptWatch ready");
   startAlertPolling();
+  ensureBackendReady().catch(() => {});
 });
 
 chrome.runtime.onStartup.addListener(() => {
   startAlertPolling();
+  ensureBackendReady().catch(() => {});
 });
 
 startAlertPolling();
+ensureBackendReady().catch(() => {});
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "ANALYZE_APARTMENT") {

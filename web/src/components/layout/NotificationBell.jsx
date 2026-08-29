@@ -107,7 +107,7 @@ export default function NotificationBell({ source }) {
               {items.slice(0, 12).map((item) => (
                 <li key={item.id} className={item.readAt ? "" : "unread"}>
                   <Link
-                    to={item.clickUrl?.includes("/apartments/") ? `/apartments/${item.apartmentId}` : `/apartments/${item.apartmentId}`}
+                    to={`/apartments/${item.apartmentId}${item.unit ? `?unit=${encodeURIComponent(item.unit)}` : ""}`}
                     onClick={() => {
                       api.markNotificationRead(item.id).then(refresh);
                       setOpen(false);

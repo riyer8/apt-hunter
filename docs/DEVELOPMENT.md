@@ -2,6 +2,14 @@
 
 ## Run everything locally
 
+One-time setup (macOS) so the Chrome extension can start the backend when you open it:
+
+```bash
+npm run launcher:install
+```
+
+Or keep `npm run launcher` running in a terminal during dev.
+
 From the repo root (starts Postgres via Docker when available, then the API and dashboard):
 
 ```bash

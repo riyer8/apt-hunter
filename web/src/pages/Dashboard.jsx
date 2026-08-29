@@ -292,6 +292,17 @@ export default function Dashboard() {
 
       <FilterBar filters={filters} onChange={setFilters} showSort showApartmentSort />
 
+      {hasActiveDashboardFilters(filters) && filteredListings.length < allListings.length ? (
+        <p className="filter-notice">
+          Filters hide {allListings.length - filteredListings.length} of {allListings.length} units. Check{" "}
+          <strong>Recently changed</strong> below, or{" "}
+          <button type="button" className="text-link" onClick={() => setFilters({ ...EMPTY_FILTERS })}>
+            clear filters
+          </button>
+          .
+        </p>
+      ) : null}
+
       {bestMatches.length > 0 ? (
         <section>
           <div className="section-head">

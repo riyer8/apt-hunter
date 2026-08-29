@@ -152,7 +152,9 @@ export function buildNotificationRecord({ type, change, listing, dashboardOrigin
   const unit = listing.unit ? `Unit ${listing.unit}` : listing.floorPlan || listing.floor_plan || "New listing";
   const listingUrl = listing.listingUrl || listing.listing_url || null;
   const apartmentId = listing.apartmentId || listing.apartment_id || change?.apartmentId || change?.apartment_id;
-  const clickUrl = listingUrl || `${String(dashboardOrigin || "http://localhost:5173").replace(/\/$/, "")}/apartments/${apartmentId}`;
+  const origin = String(dashboardOrigin || "http://localhost:5173").replace(/\/$/, "");
+  const unitParam = listing.unit ? `?unit=${encodeURIComponent(listing.unit)}` : "";
+  const clickUrl = listingUrl || `${origin}/apartments/${apartmentId}${unitParam}`;
   const useMatch =
     userPrefs?.matchAlerts === true &&
     type === NOTIFY_TYPES.NEW_LISTING &&

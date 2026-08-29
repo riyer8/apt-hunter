@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "launcher": "node scripts/launcher.mjs",
+    "launcher:install": "node scripts/install-launcher.mjs",
     "dev:server": "npm run dev --prefix server",
     "dev:web": "npm run dev --prefix web",
     "reset": "npm run reset --prefix server",

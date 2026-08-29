@@ -1,5 +1,6 @@
 import { STATUS, createApartment } from "@shared/schema.js";
 import { SF_BUILDINGS } from "@shared/sfBuildings.js";
+import { requestDevStart } from "@shared/devLauncher.js";
 
 const STORAGE_KEY = "aptwatch.web.apartments";
 const SOURCE_EXT = "aptwatch-extension";
@@ -159,6 +160,7 @@ export async function ensureBackendReady({ maxWaitMs = 30000 } = {}) {
       await waitForBridge(800);
       return true;
     }
+    await requestDevStart();
     await sleep(1000);
   }
   syncExtensionFromBackend();
