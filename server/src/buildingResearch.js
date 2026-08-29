@@ -33,6 +33,9 @@ export async function gatherBuildingResearch(apartment) {
   const google = await fetchGoogleReviewSnippets(name, location);
   if (google) add(google);
 
+  const yearBuilt = await fetchYearBuiltResearch(name, location);
+  if (yearBuilt) add(yearBuilt);
+
   return sources;
 }
 
@@ -107,6 +110,33 @@ async function fetchGoogleReviewSnippets(name, location) {
     if (!text || /unusual traffic|captcha|consent/i.test(text)) return null;
     return { url: searchUrl, title: "Google review snippets", text };
   });
+}
+
+async function fetchYearBuiltResearch(name, location) {
+  const queries = [
+    `"${name}" apartment "${location}" year built`,
+    `"${name}" san francisco completed opened constructed`,
+  ];
+  const chunks = [];
+
+  for (const query of queries) {
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+    const text = await withPage(async (page) => {
+      await page.goto(searchUrl, { waitUntil: "domcontentloaded", timeout: PAGE_TIMEOUT_MS });
+      await page.waitForTimeout(RENDER_WAIT_MS);
+      const body = await page.innerText("body");
+      if (!body || /unusual traffic|captcha|consent/i.test(body)) return null;
+      return body;
+    });
+    if (text) chunks.push(text);
+  }
+
+  if (!chunks.length) return null;
+  return {
+    url: `search:${encodeURIComponent(name)}`,
+    title: "Year built research",
+    text: chunks.join("\n\n"),
+  };
 }
 
 async function fetchPageText(url) {

@@ -15,6 +15,8 @@ import {
 import { pool, query } from "./db.js";
 import { decideNotification } from "./notify.js";
 import { buildingProfilesFor, maybeStartBuildingProfileOnFirstScrape } from "./buildingAnalyze.js";
+import { SF_BUILDINGS } from "../../shared/sfBuildings.js";
+import { canonicalUrl } from "./validate.js";
 
 const CHANGE_WINDOW_MS = 48 * 60 * 60 * 1000;
 const CHANGE_TYPES = new Set([
@@ -150,6 +152,72 @@ export async function deleteApartment(id) {
   return Boolean(result.rowCount);
 }
 
+export async function updateApartmentMetadata(id, patch) {
+  const current = await getApartmentRow(id);
+  if (!current) return null;
+
+  const nextName = patch.name ?? current.name;
+  const nextUrl = patch.url ?? current.source_url;
+  const nextLocation = patch.location !== undefined ? patch.location : current.location;
+  const nextCanonical = patch.canonicalUrl ?? current.canonical_url;
+
+  const urlChanged = nextCanonical !== current.canonical_url;
+  const nameChanged = nextName !== current.name;
+  const locationChanged = (nextLocation ?? null) !== (current.location ?? null);
+
+  if (!urlChanged && !nameChanged && !locationChanged) {
+    return {
+      apartment: current,
+      changes: { url: false, name: false, location: false },
+    };
+  }
+
+  if (urlChanged) {
+    const conflict = await query("SELECT id FROM apartments WHERE canonical_url = $1 AND id <> $2", [
+      nextCanonical,
+      id,
+    ]);
+    if (conflict.rows[0]) {
+      const error = new Error("Another building already uses that availability URL.");
+      error.status = 409;
+      throw error;
+    }
+  }
+
+  const updated = await query(
+    `UPDATE apartments
+     SET name = $2,
+         source_url = $3,
+         canonical_url = $4,
+         location = $5,
+         updated_at = now()
+     WHERE id = $1
+     RETURNING *`,
+    [id, nextName, nextUrl, nextCanonical, nextLocation],
+  );
+
+  return {
+    apartment: updated.rows[0],
+    changes: { url: urlChanged, name: nameChanged, location: locationChanged },
+  };
+}
+
+export async function populateSfApartments() {
+  await query("DELETE FROM apartments");
+  const rows = [];
+  for (const building of SF_BUILDINGS) {
+    const url = building.availabilityUrl;
+    const { apartment } = await createOrGetApartment({
+      name: building.name,
+      url,
+      canonicalUrl: canonicalUrl(url),
+      location: "San Francisco, CA",
+    });
+    rows.push(apartment);
+  }
+  return assembleApartments(rows);
+}
+
 export async function recordScrape(apartment, payload) {
   const startedAt = payload.startedAt || new Date().toISOString();
   const completedAt = new Date().toISOString();
@@ -240,7 +308,7 @@ export async function recordScrape(apartment, payload) {
           completedAt,
         ],
       );
-      if (status === "success" && !isBaselineScrape) {
+      if (status === "success" && !isBaselineScrape && !payload.suppressNotifications) {
         await insertNotificationForChange(client, {
           change: insertedChange.rows[0],
           listing: {

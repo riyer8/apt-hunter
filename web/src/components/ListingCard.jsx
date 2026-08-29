@@ -10,6 +10,7 @@ export default function ListingCard({
   showBuilding = false,
   onSelectionChange,
   selectionBusy = false,
+  compact = false,
 }) {
   const inactive = listing.isActive === false;
   const isNew = !inactive && isNewListing(listing);
@@ -18,7 +19,15 @@ export default function ListingCard({
   const specs = specLine(listing);
 
   return (
-    <article className={`listing-card${inactive ? " inactive" : ""}`}>
+    <article
+      className={[
+        "listing-card",
+        inactive ? "inactive" : null,
+        compact ? "listing-card-compact" : null,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <div className="listing-card-head">
         <div>
           <h3 className="listing-title">
@@ -42,16 +51,19 @@ export default function ListingCard({
 
       <p className="listing-price">
         {formatPrice(listing.price)}
-        {listing.price != null ? <span style={{ fontSize: 16, color: "var(--muted)" }}>/mo</span> : null}
+        {listing.price != null ? <span className="listing-price-suffix">/mo</span> : null}
         {drop ? <s>{formatPrice(listing.previousPrice)}</s> : null}
       </p>
 
       {specs ? <p className="listing-specs">{specs}</p> : <p className="listing-specs">Details not listed</p>}
-      <p className="listing-date">{formatAvailable(listing.availableDate)}</p>
-      {listing.floorPlan ? <p className="listing-date">{listing.floorPlan}</p> : null}
-      {dropAmount ? <p className="listing-date">Down ${dropAmount.toLocaleString("en-US")}</p> : null}
-      <MatchDetails match={listing.match} />
-      <BuildingScores profile={listing.buildingProfile} compact />
+      <p className="listing-date">
+        {formatAvailable(listing.availableDate)}
+        {listing.floorPlan ? ` · ${listing.floorPlan}` : ""}
+        {dropAmount ? ` · Down $${dropAmount.toLocaleString("en-US")}` : ""}
+      </p>
+
+      {!compact ? <MatchDetails match={listing.match} /> : null}
+      {!compact ? <BuildingScores profile={listing.buildingProfile} compact /> : null}
 
       {onSelectionChange ? (
         <ListingSelectionActions

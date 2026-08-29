@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { DESC_SORT_KEYS } from "@shared/listingView.js";
 import { isNewListing, isPriceDrop } from "@shared/listingView.js";
 import {
@@ -8,11 +7,11 @@ import {
   listingTitle,
 } from "../lib/format.js";
 import MatchBadge from "./MatchBadge.jsx";
-import { OverallScore } from "./BuildingScores.jsx";
+import { BuildingNameLink, OverallScore } from "./BuildingScores.jsx";
 import ListingSelectionActions from "./ListingSelectionActions.jsx";
 
 const COLUMNS = [
-  { key: "building", label: "Building" },
+  { key: "building", label: "Apartment" },
   { key: "unit", label: "Unit" },
   { key: "match", label: "Match", numeric: true },
   { key: "overall", label: "Bldg score", numeric: true },
@@ -45,7 +44,12 @@ export default function ListingsTable({
               return (
                 <th
                   key={column.key}
-                  className={column.numeric ? "num" : undefined}
+                  className={[
+                    column.numeric ? "num" : undefined,
+                    showBuilding && column.key === "building" ? "listings-table-apartment" : undefined,
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || undefined}
                   aria-sort={active ? (resolvedDir === "desc" ? "descending" : "ascending") : "none"}
                 >
                   <button type="button" onClick={() => onSort?.(column.key)}>
@@ -83,12 +87,8 @@ export default function ListingsTable({
             return (
               <tr key={listing.id || `${listing.apartmentId}-${unitLabel}`} className={rowClass}>
                 {showBuilding ? (
-                  <td>
-                    {listing.apartmentId ? (
-                      <Link to={`/apartments/${listing.apartmentId}`}>{listing.apartmentName || "Building"}</Link>
-                    ) : (
-                      listing.apartmentName || "—"
-                    )}
+                  <td className="listings-table-apartment">
+                    {listing.apartmentName ? <BuildingNameLink listing={listing} /> : "—"}
                   </td>
                 ) : null}
                 <td>

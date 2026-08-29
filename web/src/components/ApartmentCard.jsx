@@ -3,8 +3,10 @@ import { apartmentChangeSummary } from "../lib/changes.js";
 import { formatRelativeTime, formatUntil } from "../lib/format.js";
 import { matchingListings } from "../lib/filters.js";
 import { changeCount, monitorMeta } from "../lib/status.js";
+import { useApartments } from "../state/ApartmentContext.jsx";
 import { OverallScore } from "./BuildingScores.jsx";
 import ApartmentSelectionActions, { SelectionBadges } from "./ApartmentSelectionActions.jsx";
+import ScrapeProgressBanner from "./ScrapeProgressBanner.jsx";
 
 export default function ApartmentCard({
   apartment,
@@ -14,21 +16,20 @@ export default function ApartmentCard({
   onAnalyze,
   onScrape,
   onDelete,
-  analyzeBusy = false,
-  scrapeBusy = false,
   deleteBusy = false,
   showActions = true,
 }) {
+  const { isScraping } = useApartments();
   const listings = matchingListings(apartment, filters);
   const totalListings = (apartment.listings || []).length;
   const summary = apartmentChangeSummary(apartment);
-  const monitor = monitorMeta(apartment);
+  const scraping = isScraping(apartment.id) || apartment.scrapeInProgress;
+  const monitor = monitorMeta(apartment, { scraping });
   const changes = changeCount({ changeSummary: summary });
-  const analyzing = apartment.status === "Analyzing…" || analyzeBusy;
-  const scraping = scrapeBusy;
 
   return (
-    <article className="apt-card">
+    <article className={`apt-card${scraping ? " scraping" : ""}`}>
+      {scraping ? <ScrapeProgressBanner label={`Scraping ${apartment.name}…`} /> : null}
       <div className="apt-card-top">
         <div>
           <h2 className="apt-name">
@@ -37,7 +38,7 @@ export default function ApartmentCard({
           {apartment.location ? <p className="apt-location">{apartment.location}</p> : null}
           <SelectionBadges item={apartment} />
         </div>
-        <span className={`status ${monitor.tone}`}>
+        <span className={`status ${monitor.tone}${scraping ? " scraping-pulse" : ""}`}>
           <span className="dot">{monitor.icon}</span>
           {monitor.label}
         </span>
@@ -66,7 +67,7 @@ export default function ApartmentCard({
         <ApartmentSelectionActions
           apartment={apartment}
           onChange={onSelectionChange}
-          disabled={selectionBusy}
+          disabled={selectionBusy || scraping}
           compact
         />
       ) : null}
@@ -76,20 +77,20 @@ export default function ApartmentCard({
           {onScrape ? (
             <button
               type="button"
-              className="btn btn-primary btn-small"
-              disabled={scraping || analyzing || deleteBusy}
+              className={`btn btn-primary btn-small${scraping ? " btn-busy" : ""}`}
+              disabled={scraping || deleteBusy}
               onClick={() => onScrape(apartment)}
             >
-              {scraping ? "Refreshing…" : "Refresh listings"}
+              {scraping ? "Scraping…" : "Refresh listings"}
             </button>
           ) : onAnalyze ? (
             <button
               type="button"
-              className="btn btn-primary btn-small"
-              disabled={analyzing || deleteBusy}
+              className={`btn btn-primary btn-small${scraping ? " btn-busy" : ""}`}
+              disabled={scraping || deleteBusy}
               onClick={() => onAnalyze(apartment)}
             >
-              {analyzing ? "Refreshing…" : "Refresh listings"}
+              {scraping ? "Scraping…" : "Refresh listings"}
             </button>
           ) : null}
           <Link className="btn btn-ghost btn-small" to={`/apartments/${apartment.id}`}>
@@ -102,7 +103,7 @@ export default function ApartmentCard({
             <button
               type="button"
               className="btn btn-ghost btn-small danger-text"
-              disabled={analyzing || deleteBusy}
+              disabled={scraping || deleteBusy}
               onClick={() => onDelete(apartment)}
             >
               {deleteBusy ? "Deleting…" : "Delete"}

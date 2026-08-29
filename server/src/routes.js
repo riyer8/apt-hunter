@@ -15,6 +15,7 @@ import {
   listingsForApartments,
   markAllNotificationsRead,
   markNotificationRead,
+  populateSfApartments,
   previousPricesFor,
   recordScrape,
   saveAlertPrefs,
@@ -25,9 +26,10 @@ import {
   setMonitoringStatus,
   toMatchedListing,
   unreadNotificationCount,
+  updateApartmentMetadata,
 } from "./store.js";
 import { toApiScrapeRun } from "./serialize.js";
-import { isUuid, parseAlertPrefs, parseApartmentInput, parseMonitorState, parsePreferenceBundle, parseScrapeInput, parseSelectionPatch } from "./validate.js";
+import { isUuid, parseAlertPrefs, parseApartmentInput, parseApartmentPatch, parseMonitorState, parsePreferenceBundle, parseScrapeInput, parseSelectionPatch } from "./validate.js";
 import { getMonitor, schedulerStatus } from "./scheduler.js";
 import { listBuildingProfileHistory, reanalyzeBuilding, buildingProfilesFor, backfillMissingBuildingProfiles } from "./buildingAnalyze.js";
 
@@ -39,6 +41,15 @@ apartmentsRouter.post("/", async (req, res, next) => {
     const { apartment, created } = await createOrGetApartment(input);
     const [payload] = await assembleApartments([apartment]);
     res.status(created ? 201 : 200).json(payload);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apartmentsRouter.post("/populate-sf", async (_req, res, next) => {
+  try {
+    const apartments = await populateSfApartments();
+    res.status(201).json(apartments);
   } catch (error) {
     next(error);
   }
@@ -68,6 +79,41 @@ apartmentsRouter.delete("/:id", async (req, res, next) => {
     await loadApartment(req.params.id);
     await deleteApartment(req.params.id);
     res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
+apartmentsRouter.patch("/:id", async (req, res, next) => {
+  try {
+    await loadApartment(req.params.id);
+    const patch = parseApartmentPatch(req.body);
+    const { apartment: updated, changes } = await updateApartmentMetadata(req.params.id, patch);
+    const [saved] = await assembleApartments([updated]);
+
+    const refreshProfile = changes.url || changes.name || changes.location;
+    const refreshAvailabilities = changes.url;
+
+    if (refreshProfile) {
+      reanalyzeBuilding(updated).catch((error) => {
+        console.error("Building profile refresh failed:", error.message);
+      });
+    }
+    if (refreshAvailabilities) {
+      getMonitor()
+        .scrapeNow(updated, { suppressNotifications: true })
+        .catch((error) => {
+          console.error("Availability refresh failed:", error.message);
+        });
+    }
+
+    res.json({
+      apartment: saved,
+      refreshed: {
+        profile: refreshProfile,
+        availabilities: refreshAvailabilities,
+      },
+    });
   } catch (error) {
     next(error);
   }

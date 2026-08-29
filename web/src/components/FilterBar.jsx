@@ -1,6 +1,6 @@
 import { DESC_SORT_KEYS } from "@shared/listingView.js";
 
-export default function FilterBar({ filters, onChange, showSort = false }) {
+export default function FilterBar({ filters, onChange, showSort = false, showApartmentSort = false }) {
   const set = (key) => (event) => {
     const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
     onChange({ ...filters, [key]: value });
@@ -102,6 +102,7 @@ export default function FilterBar({ filters, onChange, showSort = false }) {
               }}
             >
               <option value="unit">Unit</option>
+              {showApartmentSort ? <option value="building">Apartment</option> : null}
               <option value="price">Rent</option>
               <option value="beds">Bed / Bath</option>
               <option value="sqft">Square footage</option>

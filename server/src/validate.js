@@ -52,6 +52,43 @@ export function parseApartmentInput(body) {
   return { name, url, canonicalUrl: canonicalUrl(url), location };
 }
 
+export function parseApartmentPatch(body) {
+  const patch = {};
+
+  if (body?.name != null) {
+    const name = String(body.name).trim();
+    if (!name || name.length > 120) {
+      const error = new Error("Enter an apartment name (1–120 characters).");
+      error.status = 400;
+      throw error;
+    }
+    patch.name = name;
+  }
+
+  if (body?.url != null || body?.source_url != null) {
+    const url = String(body.url ?? body.source_url).trim();
+    if (!isValidHttpUrl(url)) {
+      const error = new Error("Enter a valid http:// or https:// URL.");
+      error.status = 400;
+      throw error;
+    }
+    patch.url = url;
+    patch.canonicalUrl = canonicalUrl(url);
+  }
+
+  if (body?.location != null) {
+    patch.location = body.location === "" ? null : String(body.location).trim();
+  }
+
+  if (!Object.keys(patch).length) {
+    const error = new Error("Send name, url, and/or location to update.");
+    error.status = 400;
+    throw error;
+  }
+
+  return patch;
+}
+
 export function parseMonitorState(body) {
   const state = String(body?.state || body?.monitorState || "").toLowerCase();
   if (state !== "active" && state !== "paused") {

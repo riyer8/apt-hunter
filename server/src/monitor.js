@@ -39,7 +39,7 @@ export function createMonitor({
     return [await runScrape(due[0], { manual: false })];
   }
 
-  async function scrapeNow(apartmentOrId) {
+  async function scrapeNow(apartmentOrId, options = {}) {
     const apartment =
       typeof apartmentOrId === "object" && apartmentOrId
         ? apartmentOrId
@@ -51,10 +51,13 @@ export function createMonitor({
       error.status = 404;
       throw error;
     }
-    return runScrape(apartment, { manual: true });
+    return runScrape(apartment, {
+      manual: true,
+      suppressNotifications: options.suppressNotifications === true,
+    });
   }
 
-  async function runScrape(apartment, { manual }) {
+  async function runScrape(apartment, { manual, suppressNotifications = false }) {
     if (!manual && monitorStateOf(apartment) !== MONITOR_ACTIVE) {
       return { skipped: "paused", apartmentId: apartment.id };
     }
@@ -97,6 +100,7 @@ export function createMonitor({
           extractionMethod,
           errorMessage,
           startedAt,
+          suppressNotifications,
         });
       }
     } finally {

@@ -18,7 +18,10 @@ Score each category 0–10:
 - amenities: quality and breadth of building perks (gym, pool, lounge, parking, etc.) as described in marketing AND reviews
 - management: responsiveness, maintenance quality, leasing office, move-in/out experience — heavily weight Yelp/Google resident reviews
 
-Building age: provide yearBuilt only when explicitly stated in sources; buildingAge score is derived from year (newer = higher).
+Building age:
+- Prefer an explicit construction year (yearBuilt) when sources mention "built in", "completed", "opened", "year built", etc.
+- Also score buildingAge (0–10, newer/modern = higher) from source cues like "new construction", "historic", "mid-century", "recently renovated" when no exact year is available.
+- When you provide yearBuilt, include the exact supporting quote in yearBuiltEvidence.
 
 Differentiate buildings clearly. Two buildings in the same neighborhood should not get identical scores unless the sources support that.
 
@@ -37,6 +40,7 @@ export const BUILDING_PROFILE_JSON_SCHEMA = `{
   },
   "judgments": {
     "safety": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme" },
+    "buildingAge": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote about age, era, or construction" },
     "walkability": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme" },
     "viewsSun": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme" },
     "amenities": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme" },

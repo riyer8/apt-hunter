@@ -28,6 +28,20 @@ export async function scrapeApartment(apartment) {
   const url = apartment.source_url || apartment.url;
   if (!url) throw new Error("This apartment has no availability URL.");
 
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await scrapeApartmentOnce(apartment, url);
+    } catch (error) {
+      const message = String(error?.message || error);
+      const browserDead = /has been closed|browser has been closed|Target page, context or browser/i.test(message);
+      if (!browserDead || attempt === 1) throw error;
+      await resetBrowser();
+    }
+  }
+  throw new Error("Scrape failed.");
+}
+
+async function scrapeApartmentOnce(apartment, url) {
   const browser = await getBrowser();
   const context = await browser.newContext({
     userAgent:
@@ -141,10 +155,21 @@ async function loadAnalyzer() {
   return classifyModule;
 }
 
+export async function resetBrowser() {
+  const current = browserPromise;
+  browserPromise = null;
+  if (!current) return;
+  const browser = await current.catch(() => null);
+  if (browser) await browser.close().catch(() => {});
+}
+
 export async function getBrowser() {
-  if (!browserPromise) {
-    browserPromise = launchBrowser();
+  if (browserPromise) {
+    const browser = await browserPromise.catch(() => null);
+    if (browser?.isConnected?.()) return browser;
+    await resetBrowser();
   }
+  browserPromise = launchBrowser();
   return browserPromise;
 }
 
@@ -164,10 +189,7 @@ async function launchBrowser() {
 }
 
 export async function closeBrowser() {
-  if (!browserPromise) return;
-  const browser = await browserPromise.catch(() => null);
-  browserPromise = null;
-  if (browser) await browser.close().catch(() => {});
+  await resetBrowser();
 }
 
 export function schedulerPublicStatus() {

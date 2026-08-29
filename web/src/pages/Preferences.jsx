@@ -12,6 +12,7 @@ export default function Preferences() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [nameEditing, setNameEditing] = useState(false);
+  const [focusName, setFocusName] = useState(false);
   const nameRef = useRef(null);
 
   useEffect(() => {

@@ -62,6 +62,12 @@ export function formatPriceShort(value) {
   return `$${Number(value).toLocaleString("en-US")}`;
 }
 
+export function parseIsoTime(iso) {
+  if (!iso) return null;
+  const time = Date.parse(iso);
+  return Number.isNaN(time) ? null : time;
+}
+
 export function formatRelativeTime(iso) {
   if (!iso) return "Never";
   const then = Date.parse(iso);

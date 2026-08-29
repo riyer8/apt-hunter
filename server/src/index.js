@@ -11,6 +11,7 @@ import {
   wakeHandler,
 } from "./routes.js";
 import { startScheduler } from "./scheduler.js";
+import { closeBrowser } from "./scraper.js";
 import { backfillMissingBuildingProfiles } from "./buildingAnalyze.js";
 
 const app = express();
@@ -41,6 +42,17 @@ backfillMissingBuildingProfiles().catch((error) => {
   console.error("Building profile backfill failed:", error.message);
 });
 startScheduler();
+
+async function shutdown() {
+  await closeBrowser().catch(() => {});
+}
+
+process.on("SIGINT", () => {
+  shutdown().finally(() => process.exit(0));
+});
+process.on("SIGTERM", () => {
+  shutdown().finally(() => process.exit(0));
+});
 
 app.listen(port, () => {
   console.log(`AptWatch API on http://127.0.0.1:${port}`);

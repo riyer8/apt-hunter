@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildingAgeScoreFromYear,
+  extractConstructionYearFromSources,
   finalizeBuildingProfile,
   overallBuildingScore,
   scoreBand,
@@ -67,6 +68,45 @@ describe("finalizeBuildingProfile", () => {
     assert.equal(profile.yearBuilt, 2021);
     assert.equal(profile.buildingAge, 5);
     assert.equal(profile.buildingAgeScore, 9.4);
+  });
+
+  it("extracts a construction year from source text even when the model omits it", () => {
+    const profile = finalizeBuildingProfile({
+      raw: { facts: {}, judgments: {} },
+      sourcesText: "NEMA is a luxury tower completed in 2014 with 754 homes.",
+      nowYear: 2026,
+    });
+    assert.equal(profile.yearBuilt, 2014);
+    assert.equal(profile.buildingAge, 12);
+    assert.equal(profile.buildingAgeScore, 8.6);
+  });
+
+  it("falls back to a model buildingAge score when no year is found", () => {
+    const profile = finalizeBuildingProfile({
+      raw: {
+        facts: {},
+        judgments: {
+          buildingAge: {
+            score: 8.5,
+            insufficient: false,
+            rationale: "Described as a newer luxury high-rise.",
+            evidence: "New construction with modern finishes.",
+          },
+        },
+      },
+      sourcesText: "Luxury apartments with a rooftop pool.",
+      nowYear: 2026,
+    });
+    assert.equal(profile.yearBuilt, null);
+    assert.equal(profile.buildingAgeScore, 8.5);
+  });
+
+  it("extractConstructionYearFromSources prefers built-in over renovated", () => {
+    const extracted = extractConstructionYearFromSources(
+      "Originally built in 1962. Fully renovated in 2018 with new amenities.",
+      2026,
+    );
+    assert.equal(extracted.year, 1962);
   });
 
   it("accepts year built from model knowledge when trustModelFacts is set", () => {

@@ -1,8 +1,8 @@
 import { STATUS } from "@shared/schema.js";
 
-export function monitorMeta(apartment) {
-  if (apartment?.scrapeInProgress) {
-    return { label: "Checking…", tone: "warn", icon: "🟡" };
+export function monitorMeta(apartment, { scraping = false } = {}) {
+  if (scraping || apartment?.scrapeInProgress) {
+    return { label: "Scraping…", tone: "warn", icon: "◌" };
   }
   if (apartment?.monitorState === "paused" || !apartment?.monitorState) {
     return { label: "Paused", tone: "muted", icon: "○" };

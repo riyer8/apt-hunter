@@ -1,4 +1,5 @@
 import { STATUS, createApartment } from "@shared/schema.js";
+import { SF_BUILDINGS } from "@shared/sfBuildings.js";
 
 const STORAGE_KEY = "aptwatch.web.apartments";
 const SOURCE_EXT = "aptwatch-extension";
@@ -316,6 +317,25 @@ export async function getApartment(id) {
   return (await listApartments()).find((item) => item.id === id) || null;
 }
 
+export async function populateSfBuildings() {
+  if (await apiReady()) {
+    const apartments = await apiRequest("/apartments/populate-sf", { method: "POST" });
+    syncExtensionFromBackend();
+    return apartments;
+  }
+
+  const existing = await listApartments();
+  for (const apartment of existing) {
+    await removeApartment(apartment.id);
+  }
+
+  const created = [];
+  for (const building of SF_BUILDINGS) {
+    created.push(await addApartment({ name: building.name, url: building.availabilityUrl }));
+  }
+  return created;
+}
+
 export async function addApartment({ name, url }) {
   if (await apiReady()) {
     const created = await apiRequest("/apartments", { method: "POST", body: { name, url } });
@@ -546,6 +566,31 @@ export async function reanalyzeBuilding(id) {
     return result;
   }
   throw new Error("Re-analyze Building needs the API and an OpenAI key.");
+}
+
+export async function updateApartment(id, patch) {
+  if (await apiReady()) {
+    const result = await apiRequest(`/apartments/${id}`, { method: "PATCH", body: patch });
+    syncExtensionFromBackend();
+    return result;
+  }
+
+  const apartments = readLocal();
+  let updated = null;
+  const next = apartments.map((apartment) => {
+    if (apartment.id !== id) return apartment;
+    updated = {
+      ...apartment,
+      ...(patch.name != null ? { name: patch.name } : {}),
+      ...(patch.url != null ? { url: patch.url } : {}),
+      ...(patch.location !== undefined ? { location: patch.location } : {}),
+    };
+    return updated;
+  });
+  if (!updated) return null;
+  writeLocal(next);
+  window.dispatchEvent(new Event("aptwatch:apartments-changed"));
+  return { apartment: updated, refreshed: { profile: false, availabilities: false } };
 }
 
 export function persistUiPrefs(patch) {

@@ -9,6 +9,19 @@ export function ApartmentProvider({ children }) {
   const [preferences, setPreferences] = useState(normalizePreferenceBundle());
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState("local");
+  const [scrapingIds, setScrapingIds] = useState(() => new Set());
+
+  const markScraping = useCallback((id, active) => {
+    if (!id) return;
+    setScrapingIds((prev) => {
+      const next = new Set(prev);
+      if (active) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const isScraping = useCallback((id) => scrapingIds.has(id), [scrapingIds]);
 
   const refresh = useCallback(async () => {
     const [items, prefs] = await Promise.all([api.listApartments(), api.getUserPreferences()]);
@@ -44,6 +57,15 @@ export function ApartmentProvider({ children }) {
     };
   }, [refresh]);
 
+  useEffect(() => {
+    const serverScraping = apartments.some((apartment) => apartment.scrapeInProgress);
+    if (!serverScraping && scrapingIds.size === 0) return undefined;
+    const timer = setInterval(() => {
+      refresh();
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [apartments, scrapingIds, refresh]);
+
   const addApartment = useCallback(
     async (input) => {
       const created = await api.addApartment(input);
@@ -52,6 +74,12 @@ export function ApartmentProvider({ children }) {
     },
     [refresh],
   );
+
+  const populateSfBuildings = useCallback(async () => {
+    const apartments = await api.populateSfBuildings();
+    await refresh();
+    return apartments;
+  }, [refresh]);
 
   const removeApartment = useCallback(
     async (id) => {
@@ -71,16 +99,31 @@ export function ApartmentProvider({ children }) {
 
   const scrapeNow = useCallback(
     async (id) => {
-      const result = await api.scrapeNow(id);
+      markScraping(id, true);
+      try {
+        const result = await api.scrapeNow(id);
+        await refresh();
+        return result;
+      } finally {
+        markScraping(id, false);
+        await refresh();
+      }
+    },
+    [refresh, markScraping],
+  );
+
+  const reanalyzeBuilding = useCallback(
+    async (id) => {
+      const result = await api.reanalyzeBuilding(id);
       await refresh();
       return result;
     },
     [refresh],
   );
 
-  const reanalyzeBuilding = useCallback(
-    async (id) => {
-      const result = await api.reanalyzeBuilding(id);
+  const updateApartment = useCallback(
+    async (id, patch) => {
+      const result = await api.updateApartment(id, patch);
       await refresh();
       return result;
     },
@@ -105,10 +148,17 @@ export function ApartmentProvider({ children }) {
 
   const analyzeApartment = useCallback(
     async (apartment) => {
-      await api.analyzeApartment(apartment);
-      await refresh();
+      const id = apartment?.id || apartment;
+      markScraping(id, true);
+      try {
+        await api.analyzeApartment(apartment);
+        await refresh();
+      } finally {
+        markScraping(id, false);
+        await refresh();
+      }
     },
-    [refresh],
+    [refresh, markScraping],
   );
 
   const savePreferences = useCallback((prefs) => {
@@ -124,17 +174,20 @@ export function ApartmentProvider({ children }) {
       loading,
       source,
       refresh,
+      isScraping,
       addApartment,
+      populateSfBuildings,
       removeApartment,
       setMonitorState,
       scrapeNow,
       reanalyzeBuilding,
+      updateApartment,
       setApartmentSelection,
       setListingSelection,
       analyzeApartment,
       savePreferences,
     }),
-    [scoredApartments, preferences, loading, source, refresh, addApartment, removeApartment, setMonitorState, scrapeNow, reanalyzeBuilding, setApartmentSelection, setListingSelection, analyzeApartment, savePreferences],
+    [scoredApartments, preferences, loading, source, refresh, isScraping, addApartment, populateSfBuildings, removeApartment, setMonitorState, scrapeNow, reanalyzeBuilding, updateApartment, setApartmentSelection, setListingSelection, analyzeApartment, savePreferences],
   );
 
   return <ApartmentContext.Provider value={value}>{children}</ApartmentContext.Provider>;

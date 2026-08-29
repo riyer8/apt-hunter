@@ -9,12 +9,15 @@ import {
 } from "@shared/listingView.js";
 import { useApartments } from "../state/ApartmentContext.jsx";
 import { apartmentVisible, apartmentIncludedInListings, hasActiveDashboardFilters, EMPTY_FILTERS } from "../lib/filters.js";
-import { formatPrice, formatRelativeTime, listingTitle } from "../lib/format.js";
+import { formatPrice, formatRelativeTime, listingTitle, parseIsoTime } from "../lib/format.js";
 import { cycleSort, usePersistentFilters } from "../hooks/usePersistentFilters.js";
+import { SF_BUILDINGS } from "@shared/sfBuildings.js";
 import Shell from "../components/Shell.jsx";
 import FilterBar from "../components/FilterBar.jsx";
 import ApartmentCard from "../components/ApartmentCard.jsx";
-import ListingCard from "../components/ListingCard.jsx";
+import CuratedUnitsSection from "../components/CuratedUnitsSection.jsx";
+import CollapsibleSection from "../components/CollapsibleSection.jsx";
+import { summarizeBuildings } from "../lib/dashboardSummaries.js";
 import ListingsTable from "../components/ListingsTable.jsx";
 import AddApartmentModal from "../components/AddApartmentModal.jsx";
 
@@ -24,6 +27,7 @@ export default function Dashboard() {
     loading,
     source,
     addApartment,
+    populateSfBuildings,
     removeApartment,
     setApartmentSelection,
     setListingSelection,
@@ -34,9 +38,9 @@ export default function Dashboard() {
   const [adding, setAdding] = useState(false);
   const [selectionBusy, setSelectionBusy] = useState("");
   const [listingSelectionBusy, setListingSelectionBusy] = useState("");
-  const [analyzeBusy, setAnalyzeBusy] = useState("");
-  const [scrapeBusy, setScrapeBusy] = useState("");
   const [deleteBusy, setDeleteBusy] = useState("");
+  const [populateBusy, setPopulateBusy] = useState("");
+  const [populateError, setPopulateError] = useState("");
   const canManage = source === "api" || source === "extension";
 
   const visible = useMemo(
@@ -98,7 +102,6 @@ export default function Dashboard() {
   }
 
   async function handleScrape(apartment) {
-    setScrapeBusy(apartment.id);
     try {
       if (source === "api") {
         await scrapeNow(apartment.id);
@@ -107,19 +110,14 @@ export default function Dashboard() {
       }
     } catch (error) {
       window.alert(error?.message || "Refresh failed.");
-    } finally {
-      setScrapeBusy("");
     }
   }
 
   async function handleAnalyze(apartment) {
-    setAnalyzeBusy(apartment.id);
     try {
       await analyzeApartment(apartment);
     } catch (error) {
       window.alert(error?.message || "Analyze failed.");
-    } finally {
-      setAnalyzeBusy("");
     }
   }
 
@@ -140,10 +138,8 @@ export default function Dashboard() {
       onSelectionChange: canManage ? (patch) => handleSelectionChange(apartment.id, patch) : undefined,
       selectionBusy: selectionBusy === apartment.id,
       onScrape: canManage ? handleScrape : undefined,
-      scrapeBusy: scrapeBusy === apartment.id,
       onAnalyze: canManage && source !== "api" ? handleAnalyze : undefined,
       onDelete: canManage ? handleDelete : undefined,
-      analyzeBusy: analyzeBusy === apartment.id,
       deleteBusy: deleteBusy === apartment.id,
     };
   }
@@ -188,12 +184,13 @@ export default function Dashboard() {
     (apartment) => apartment.monitorState === "active" && (apartment.consecutiveFailures || 0) >= 3,
   ).length;
   const lastCheckedMs = apartments.reduce((latest, apartment) => {
-    const time = Date.parse(apartment.lastChecked || 0);
-    return Number.isNaN(time) ? latest : Math.max(latest, time);
-  }, 0);
+    const time = parseIsoTime(apartment.lastChecked);
+    if (time == null) return latest;
+    return latest == null ? time : Math.max(latest, time);
+  }, null);
   const recent = filteredListings
     .filter((listing) => isRecentlyChanged(listing))
-    .sort((left, right) => Date.parse(right.lastSeen || 0) - Date.parse(left.lastSeen || 0))
+    .sort((left, right) => (parseIsoTime(right.lastSeen) ?? 0) - (parseIsoTime(left.lastSeen) ?? 0))
     .slice(0, 6);
 
   const bestMatches = useMemo(
@@ -226,16 +223,51 @@ export default function Dashboard() {
     [filteredListings, filters.selectionScope, filters.sort, filters.sortDir],
   );
 
+  const buildingsTitle = filters.selectionScope ? "Filtered buildings" : "All buildings";
+  const buildingsSummary = useMemo(() => summarizeBuildings(visibleMain), [visibleMain]);
+
+  async function handlePopulateSf() {
+    if (
+      !window.confirm(
+        `Replace all ${apartments.length} building${apartments.length === 1 ? "" : "s"} with the SF starter list (${SF_BUILDINGS.length} buildings)? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setPopulateError("");
+    setPopulateBusy(true);
+    try {
+      await populateSfBuildings();
+    } catch (err) {
+      setPopulateError(err.message || "Could not auto-populate.");
+    } finally {
+      setPopulateBusy(false);
+    }
+  }
+
   return (
     <Shell
       source={source}
       action={
-        <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
-          + Add apartment
-        </button>
+        <div className="dashboard-actions">
+          {canManage ? (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={populateBusy || loading}
+              onClick={handlePopulateSf}
+            >
+              {populateBusy ? "Populating…" : "Auto-populate SF"}
+            </button>
+          ) : null}
+          <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
+            + Add apartment
+          </button>
+        </div>
       }
     >
       <h1 className="page-title">Dashboard</h1>
+      {populateError ? <p className="form-error">{populateError}</p> : null}
 
       <section className="stats">
         <div className="stat">
@@ -244,7 +276,7 @@ export default function Dashboard() {
         </div>
         <div className="stat">
           <div className="stat-value stat-value-fit">
-            {loading ? "—" : lastCheckedMs ? formatRelativeTime(new Date(lastCheckedMs).toISOString()) : "Never"}
+            {loading ? "—" : lastCheckedMs != null ? formatRelativeTime(new Date(lastCheckedMs).toISOString()) : "Never"}
           </div>
           <div className="stat-label">Last checked</div>
         </div>
@@ -258,7 +290,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <FilterBar filters={filters} onChange={setFilters} showSort />
+      <FilterBar filters={filters} onChange={setFilters} showSort showApartmentSort />
 
       {bestMatches.length > 0 ? (
         <section>
@@ -287,25 +319,20 @@ export default function Dashboard() {
       ) : null}
 
       {recent.length > 0 ? (
-        <section>
-          <div className="section-head">
-            <h2>Recently changed</h2>
-            <p>
-              <Link to="/changes">All changes</Link>
-            </p>
-          </div>
-          <div className="changed-rail">
-            {recent.map((listing) => (
-              <ListingCard
-                key={listing.id}
-                listing={listing}
-                showBuilding
-                onSelectionChange={canManage ? (patch) => handleListingSelection(listing.id, patch) : undefined}
-                selectionBusy={listingSelectionBusy === listing.id}
-              />
-            ))}
-          </div>
-        </section>
+        <CuratedUnitsSection
+          title="Recently changed"
+          listings={recent}
+          showBuilding
+          compact
+          defaultOpen={recent.length <= 2}
+          onSelectionChange={canManage ? handleListingSelection : undefined}
+          selectionBusyId={listingSelectionBusy}
+          action={
+            <Link to="/changes" className="collapsible-section-link">
+              All changes
+            </Link>
+          }
+        />
       ) : null}
 
       {favorites.length > 0 ? (
@@ -336,15 +363,15 @@ export default function Dashboard() {
         </section>
       ) : null}
 
-      <section>
-        <div className="section-head">
-          <h2>{filters.selectionScope ? "Filtered buildings" : "All buildings"}</h2>
-          <p>
-            {visibleMain.length} building{visibleMain.length === 1 ? "" : "s"}
-          </p>
-        </div>
+      <CollapsibleSection
+        title={buildingsTitle}
+        headline={buildingsSummary.headline}
+        preview={visibleMain.length > 0 ? buildingsSummary.preview : null}
+        defaultOpen={visibleMain.length <= 2}
+        bodyClassName={visibleMain.length === 0 && !loading ? "" : "card-grid"}
+      >
         {visibleMain.length === 0 && !loading ? (
-          <div className="empty">
+          <div className="empty collapsible-section-empty">
             {apartments.length === 0 ? (
               "None"
             ) : (
@@ -356,52 +383,32 @@ export default function Dashboard() {
             )}
           </div>
         ) : (
-          <div className="card-grid">
-            {visibleMain.map((apartment) => (
-              <ApartmentCard key={apartment.id} {...cardProps(apartment)} />
-            ))}
-          </div>
+          visibleMain.map((apartment) => <ApartmentCard key={apartment.id} {...cardProps(apartment)} />)
         )}
-      </section>
+      </CollapsibleSection>
 
       {favoriteUnits.length > 0 ? (
-        <section>
-          <div className="section-head">
-            <h2>★ Favorite units</h2>
-            <p>{favoriteUnits.length} unit{favoriteUnits.length === 1 ? "" : "s"}</p>
-          </div>
-          <div className="changed-rail">
-            {favoriteUnits.map((listing) => (
-              <ListingCard
-                key={`fav-unit-${listing.id}`}
-                listing={listing}
-                showBuilding
-                onSelectionChange={canManage ? (patch) => handleListingSelection(listing.id, patch) : undefined}
-                selectionBusy={listingSelectionBusy === listing.id}
-              />
-            ))}
-          </div>
-        </section>
+        <CuratedUnitsSection
+          title="★ Favorite units"
+          listings={favoriteUnits}
+          showBuilding
+          compact
+          defaultOpen={favoriteUnits.length <= 2}
+          onSelectionChange={canManage ? handleListingSelection : undefined}
+          selectionBusyId={listingSelectionBusy}
+        />
       ) : null}
 
       {watchlistUnits.length > 0 ? (
-        <section>
-          <div className="section-head">
-            <h2>👁 Unit watchlist</h2>
-            <p>{watchlistUnits.length} unit{watchlistUnits.length === 1 ? "" : "s"}</p>
-          </div>
-          <div className="changed-rail">
-            {watchlistUnits.map((listing) => (
-              <ListingCard
-                key={`watch-unit-${listing.id}`}
-                listing={listing}
-                showBuilding
-                onSelectionChange={canManage ? (patch) => handleListingSelection(listing.id, patch) : undefined}
-                selectionBusy={listingSelectionBusy === listing.id}
-              />
-            ))}
-          </div>
-        </section>
+        <CuratedUnitsSection
+          title="👁 Unit watchlist"
+          listings={watchlistUnits}
+          showBuilding
+          compact
+          defaultOpen={watchlistUnits.length <= 2}
+          onSelectionChange={canManage ? handleListingSelection : undefined}
+          selectionBusyId={listingSelectionBusy}
+        />
       ) : null}
 
       <section>

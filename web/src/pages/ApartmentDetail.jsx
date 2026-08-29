@@ -13,20 +13,37 @@ import ListingsTable from "../components/ListingsTable.jsx";
 import AlertPrefsForm from "../components/AlertPrefsForm.jsx";
 import BuildingProfilePanel from "../components/BuildingProfilePanel.jsx";
 import ApartmentSelectionActions, { SelectionBadges } from "../components/ApartmentSelectionActions.jsx";
+import EditApartmentModal from "../components/EditApartmentModal.jsx";
+import ScrapeProgressBanner from "../components/ScrapeProgressBanner.jsx";
 
 export default function ApartmentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { apartments, loading, source, removeApartment, setMonitorState, scrapeNow, reanalyzeBuilding, setApartmentSelection, setListingSelection, analyzeApartment } =
-    useApartments();
+  const {
+    apartments,
+    loading,
+    source,
+    removeApartment,
+    setMonitorState,
+    scrapeNow,
+    reanalyzeBuilding,
+    updateApartment,
+    setApartmentSelection,
+    setListingSelection,
+    analyzeApartment,
+    isScraping,
+  } = useApartments();
   const [filters, setFilters] = usePersistentFilters();
   const [history, setHistory] = useState([]);
   const [busy, setBusy] = useState("");
   const [listingSelectionBusy, setListingSelectionBusy] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const canManage = source === "api" || source === "extension";
   const apartment = apartments.find((item) => item.id === id);
-  const monitor = apartment ? monitorMeta(apartment) : null;
+  const scraping = apartment ? isScraping(apartment.id) || apartment.scrapeInProgress : false;
+  const monitor = apartment ? monitorMeta(apartment, { scraping }) : null;
   const summary = apartment ? apartmentChangeSummary(apartment) : null;
 
   const listings = useMemo(() => {
@@ -76,12 +93,13 @@ export default function ApartmentDetail() {
 
       {apartment ? (
         <>
+          {scraping ? <ScrapeProgressBanner label={`Scraping ${apartment.name} — this usually takes 10–30 seconds…`} /> : null}
           <div className="detail-hero">
             <div>
               <h1 className="page-title">{apartment.name}</h1>
               {apartment.location ? <p className="lede">{apartment.location}</p> : null}
               <SelectionBadges apartment={apartment} />
-              <p className={`status ${monitor.tone}`}>
+              <p className={`status ${monitor.tone}${scraping ? " scraping-pulse" : ""}`}>
                 <span className="dot">{monitor.icon}</span>
                 {monitor.label}
               </p>
@@ -96,13 +114,13 @@ export default function ApartmentDetail() {
                 <>
                   <button
                     type="button"
-                    className="btn btn-primary"
-                    disabled={Boolean(busy)}
+                    className={`btn btn-primary${scraping ? " btn-busy" : ""}`}
+                    disabled={Boolean(busy) || scraping}
                     onClick={() =>
                       run("scrape", () => (source === "api" ? scrapeNow(apartment.id) : analyzeApartment(apartment)))
                     }
                   >
-                    {busy === "scrape" || busy === "analyze" ? "Refreshing…" : "Refresh listings"}
+                    {scraping ? "Scraping…" : "Refresh listings"}
                   </button>
                   <button
                     type="button"
@@ -125,6 +143,11 @@ export default function ApartmentDetail() {
               <a className="btn btn-ghost" href={apartment.url} target="_blank" rel="noreferrer">
                 Availability page
               </a>
+              {source === "api" ? (
+                <button type="button" className="btn btn-ghost" disabled={Boolean(busy)} onClick={() => setEditing(true)}>
+                  Edit building
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="btn btn-ghost"
@@ -145,6 +168,7 @@ export default function ApartmentDetail() {
           />
 
           {error ? <p className="error">{error}</p> : null}
+          {notice ? <p className="notice">{notice}</p> : null}
           {apartment.lastError && apartment.consecutiveFailures > 0 ? (
             <p className="error">{apartment.lastError}</p>
           ) : null}
@@ -234,6 +258,23 @@ export default function ApartmentDetail() {
       ) : (
         <p className="lede">Loading…</p>
       )}
+
+      {editing && apartment ? (
+        <EditApartmentModal
+          apartment={apartment}
+          onClose={() => setEditing(false)}
+          onSave={async (patch) => {
+            const result = await updateApartment(apartment.id, patch);
+            setNotice(
+              result?.refreshed?.availabilities
+                ? "Saved. Refreshing availabilities and building profile — past units are kept."
+                : result?.refreshed?.profile
+                  ? "Saved. Refreshing building profile."
+                  : "Saved.",
+            );
+          }}
+        />
+      ) : null}
     </Shell>
   );
 }

@@ -1,0 +1,320 @@
+{
+  "ranAt": "2026-08-29T05:55:42.561Z",
+  "results": [
+    {
+      "name": "Avalon Dogpatch",
+      "url": "https://www.avaloncommunities.com/california/san-francisco-apartments/avalon-dogpatch/",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 13,
+      "method": "json",
+      "error": null,
+      "sample": {
+        "unit": "00A-326",
+        "price": 7066,
+        "beds": 2,
+        "sqft": 1097
+      },
+      "ms": 10362
+    },
+    {
+      "name": "Windsor Dogpatch",
+      "url": "https://www.windsorcommunities.com/properties/windsor-at-dogpatch/floorplans/",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 14,
+      "method": "html",
+      "error": null,
+      "sample": {
+        "unit": "203",
+        "price": 4077,
+        "beds": 0,
+        "sqft": 473
+      },
+      "ms": 9455
+    },
+    {
+      "name": "388 Beale",
+      "url": "https://www.udr.com/san-francisco-bay-area-apartments/san-francisco/388-beale/apartments-pricing/",
+      "hint": null,
+      "outcome": "PARTIAL",
+      "count": 30,
+      "method": "jsData",
+      "error": null,
+      "sample": {
+        "unit": null,
+        "price": null,
+        "beds": 1,
+        "sqft": null
+      },
+      "ms": 8178
+    },
+    {
+      "name": "38 Dolores",
+      "url": "https://38doloressf.com/floorplans/",
+      "hint": null,
+      "outcome": "PARTIAL",
+      "count": 2,
+      "method": "html",
+      "error": null,
+      "sample": {
+        "unit": null,
+        "price": null,
+        "beds": 2,
+        "sqft": 1330
+      },
+      "ms": 8727
+    },
+    {
+      "name": "Spera",
+      "url": "https://www.sperasf.com/floor-plans/",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 1,
+      "method": "html",
+      "error": null,
+      "sample": {
+        "unit": null,
+        "price": 8487,
+        "beds": 2,
+        "sqft": 981
+      },
+      "ms": 7766
+    },
+    {
+      "name": "The Oak SF",
+      "url": "https://www.theoaksf.com/residences-2",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 4,
+      "method": "text",
+      "error": null,
+      "sample": {
+        "unit": null,
+        "price": 3440,
+        "beds": 1,
+        "sqft": 695
+      },
+      "ms": 8329
+    },
+    {
+      "name": "Strata at Mission Bay",
+      "url": "https://www.stratasf.com/floorplans",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 4,
+      "method": "jsData",
+      "error": null,
+      "sample": {
+        "unit": "322",
+        "price": 7840,
+        "beds": 2,
+        "sqft": 1113
+      },
+      "ms": 9836
+    },
+    {
+      "name": "Mission Bay by Windsor",
+      "url": "https://www.windsorcommunities.com/properties/mission-bay-by-windsor/floorplans/",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 6,
+      "method": "html",
+      "error": null,
+      "sample": {
+        "unit": "206",
+        "price": 6887,
+        "beds": 2,
+        "sqft": 1011
+      },
+      "ms": 7359
+    },
+    {
+      "name": "One Henry Adams",
+      "url": "https://www.equityapartments.com/san-francisco/design-district/one-henry-adams-apartments",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 2,
+      "method": "text",
+      "error": null,
+      "sample": {
+        "unit": null,
+        "price": 4541,
+        "beds": 1,
+        "sqft": 654
+      },
+      "ms": 8743
+    },
+    {
+      "name": "333 Fremont",
+      "url": "https://www.333fremont.com/san-francisco/333-fremont/conventional/",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 6,
+      "method": "jsonLd",
+      "error": null,
+      "sample": {
+        "unit": "208",
+        "price": 7444,
+        "beds": 2,
+        "sqft": 1193
+      },
+      "ms": 9053
+    },
+    {
+      "name": "Duboce",
+      "url": "https://duboce.com/floorplans",
+      "hint": null,
+      "outcome": "PARTIAL",
+      "count": 16,
+      "method": "html",
+      "error": null,
+      "sample": {
+        "unit": null,
+        "price": null,
+        "beds": 1,
+        "sqft": 543
+      },
+      "ms": 8797
+    },
+    {
+      "name": "The Gateway",
+      "url": "https://thegateway.com/",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 20,
+      "method": "jsData",
+      "error": null,
+      "sample": {
+        "unit": "0X1",
+        "price": 4473,
+        "beds": 0,
+        "sqft": 512
+      },
+      "ms": 7913
+    },
+    {
+      "name": "1700 California",
+      "url": "https://www.rcqalive.com/apartments/ca/san-francisco/1700-california-st-residential/default.aspx",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 3,
+      "method": "html",
+      "error": null,
+      "sample": {
+        "unit": "0804",
+        "price": 5095,
+        "beds": null,
+        "sqft": null
+      },
+      "ms": 9150
+    },
+    {
+      "name": "VELA SF",
+      "url": "https://rentvela.com/floorplans",
+      "hint": "Page loads; currently shows no available units",
+      "outcome": "FAILED",
+      "count": 0,
+      "method": "none",
+      "error": "✕ Could not reliably detect apartment availability",
+      "sample": null,
+      "ms": 11137
+    },
+    {
+      "name": "Mission Rock",
+      "url": "https://missionrockresidences.com/availability/",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 18,
+      "method": "jsonLd + text",
+      "error": null,
+      "sample": {
+        "unit": "0707",
+        "price": 9182,
+        "beds": 2,
+        "sqft": 940
+      },
+      "ms": 7187
+    },
+    {
+      "name": "Solaire",
+      "url": "https://solairesf.com/floorplans",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 22,
+      "method": "text + html",
+      "error": null,
+      "sample": {
+        "unit": "02",
+        "price": 4687,
+        "beds": 1,
+        "sqft": 513
+      },
+      "ms": 10448
+    },
+    {
+      "name": "SOMA at 788",
+      "url": "https://www.rentnema.com/availabilities",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 62,
+      "method": "html",
+      "error": null,
+      "sample": {
+        "unit": null,
+        "price": 9495,
+        "beds": 2,
+        "sqft": 1442
+      },
+      "ms": 8550
+    },
+    {
+      "name": "NEMA",
+      "url": "https://www.rentnema.com/availabilities",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 62,
+      "method": "html",
+      "error": null,
+      "sample": {
+        "unit": null,
+        "price": 9495,
+        "beds": 2,
+        "sqft": 1442
+      },
+      "ms": 8227
+    },
+    {
+      "name": "Avalon Hayes Valley",
+      "url": "https://www.avaloncommunities.com/california/san-francisco-apartments/avalon-hayes-valley/",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 17,
+      "method": "json",
+      "error": null,
+      "sample": {
+        "unit": "00E-118",
+        "price": 6600,
+        "beds": 2,
+        "sqft": 1127
+      },
+      "ms": 10615
+    },
+    {
+      "name": "Avalon Mission Bay",
+      "url": "https://www.avaloncommunities.com/california/san-francisco-apartments/avalon-at-mission-bay/",
+      "hint": null,
+      "outcome": "SUCCESS",
+      "count": 41,
+      "method": "json + html",
+      "error": null,
+      "sample": {
+        "unit": "00H-514",
+        "price": 5015,
+        "beds": 1,
+        "sqft": 854
+      },
+      "ms": 10618
+    }
+  ]
+}
