@@ -63,19 +63,20 @@ Open **Preferences** in the dashboard. You can add more than one search (for exa
 
 ## Tests
 
-Unit tests:
+See **[TESTING.md](TESTING.md)** for the full picture (what each layer checks, latest live audit results, and commands).
+
+Quick commands:
 
 ```bash
-cd server
+npm run verify        # unit tests + layout fixtures (~5s)
+npm run verify:live   # + API smoke test (needs npm run dev)
+npm run verify:audit  # + live scrape of 20 SF buildings (~4 min)
+```
+
+Unit tests alone:
+
+```bash
 npm test
 ```
 
-Covers scheduling, scrape retries, change detection, matching, building profiles, and selection.
-
-With the API running, end-to-end smoke test:
-
-```bash
-npm run smoke
-```
-
-Checks `/health`, `/wake`, apartments, listing/building selection, preferences, and changes.
+Covers scheduling, scrape retries, change detection, matching, building profiles, notifications, and selection. CI runs these on every push.

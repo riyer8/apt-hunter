@@ -11,6 +11,11 @@
     "dev:web": "npm run dev --prefix web",
     "reset": "npm run reset --prefix server",
     "test": "npm test --prefix server",
+    "test:layouts": "node scripts/test/test-layouts.mjs",
+    "test:audit": "node scripts/audit/scrape-audit.mjs",
+    "verify": "node scripts/verify.mjs",
+    "verify:live": "node scripts/verify.mjs --live",
+    "verify:audit": "node scripts/verify.mjs --audit",
     "smoke": "node scripts/smoke.mjs"
   }
 }
