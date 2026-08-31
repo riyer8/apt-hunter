@@ -177,14 +177,15 @@ describe("decideNotification", () => {
     assert.equal(result.reason, "not-favorite");
   });
 
-  it("9. clicking a notification opens the listing URL", () => {
+  it("9. clicking a notification opens AptWatch", () => {
     const result = decideNotification({
       outcome: "SUCCESS",
       change: { id: "chg-8", type: "NEW" },
       listing,
       prefs,
     });
-    assert.equal(notificationClickUrl(result.notification), listing.listingUrl);
+    assert.equal(notificationClickUrl(result.notification), "http://localhost:5173/apartments/apt-george?unit=1204");
+    assert.equal(result.notification.listingUrl, listing.listingUrl);
     const noUrl = decideNotification({
       outcome: "SUCCESS",
       change: { id: "chg-8b", type: "NEW", apartmentId: "apt-george" },

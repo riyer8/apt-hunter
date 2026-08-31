@@ -8,63 +8,20 @@
   <body>
     <header>
       <h1>AptWatch</h1>
-      <div class="header-actions">
-        <button id="dashboard-button" type="button" class="header-link">Dashboard</button>
-        <button id="test-toggle" type="button" class="header-link" aria-expanded="false">Test</button>
-        <label class="diag-toggle">
-          <input id="diagnostics-toggle" type="checkbox" />
-          Diagnostics
-        </label>
-      </div>
+      <button id="dashboard-button" type="button" class="header-link">Dashboard</button>
     </header>
 
     <p id="backend-status" class="backend-status" hidden></p>
 
-    <section id="test-extract" class="test-extract" hidden>
-      <div class="test-row">
-        <input
-          id="test-url-input"
-          type="url"
-          placeholder="https://example.com/apartments"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <button id="test-extract-button" type="button">Run</button>
-        <button id="clear-test-button" type="button" class="secondary" hidden>Clear</button>
+    <section class="changes-section">
+      <div class="section-head">
+        <h2>Recent changes</h2>
+        <button id="refresh-button" type="button" class="header-link">Refresh</button>
       </div>
-      <p id="test-error" class="error" hidden></p>
-      <div id="test-report"></div>
-    </section>
-
-    <form id="add-form">
-      <label for="name-input">Apartment name</label>
-      <input
-        id="name-input"
-        name="name"
-        type="text"
-        placeholder="Building name"
-        autocomplete="off"
-        spellcheck="true"
-      />
-
-      <label for="url-input">Apartment availability URL</label>
-      <input
-        id="url-input"
-        name="url"
-        type="url"
-        placeholder="https://example.com/apartments"
-        autocomplete="off"
-        spellcheck="false"
-      />
-
-      <button type="submit">Add Apartment</button>
-      <p id="form-error" class="error" hidden></p>
-    </form>
-
-    <section class="monitored">
-      <h2>Monitored Apartments</h2>
-      <p id="empty-state" class="empty">None</p>
-      <ul id="apartment-list"></ul>
+      <p id="changes-loading" class="muted">Loading…</p>
+      <p id="changes-error" class="error" hidden></p>
+      <p id="changes-empty" class="empty" hidden>None in the last 48 hours</p>
+      <ul id="changes-list" hidden></ul>
     </section>
 
     <script type="module" src="popup.js"></script>

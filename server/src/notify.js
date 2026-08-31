@@ -154,7 +154,7 @@ export function buildNotificationRecord({ type, change, listing, dashboardOrigin
   const apartmentId = listing.apartmentId || listing.apartment_id || change?.apartmentId || change?.apartment_id;
   const origin = String(dashboardOrigin || "http://localhost:5173").replace(/\/$/, "");
   const unitParam = listing.unit ? `?unit=${encodeURIComponent(listing.unit)}` : "";
-  const clickUrl = listingUrl || `${origin}/apartments/${apartmentId}${unitParam}`;
+  const clickUrl = `${origin}/apartments/${apartmentId}${unitParam}`;
   const useMatch =
     userPrefs?.matchAlerts === true &&
     type === NOTIFY_TYPES.NEW_LISTING &&
@@ -207,7 +207,7 @@ export function chromeNotificationOptions(record) {
 }
 
 export function notificationClickUrl(record, dashboardOrigin = "http://localhost:5173") {
-  return record.listingUrl || record.clickUrl || `${dashboardOrigin}/apartments/${record.apartmentId}`;
+  return record.clickUrl || `${dashboardOrigin}/apartments/${record.apartmentId}`;
 }
 
 export function browserPermissionDecision(permission, { asked = false } = {}) {

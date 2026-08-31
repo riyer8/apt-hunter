@@ -34,8 +34,9 @@ async function pullAlerts() {
   for (const item of data.notifications || []) {
     const claimed = await apiRequest(`/notifications/${item.id}/deliver`, { method: "POST" });
     if (!claimed?.claimed) continue;
-    const clickUrl = item.clickUrl || item.listingUrl || `${getApiUrl().replace(":8787", ":5173")}/apartments/${item.apartmentId}`;
-    clicks[item.id] = clickUrl;
+    const dashboard = getApiUrl().replace(":8787", ":5173");
+    const unit = item.unit ? `?unit=${encodeURIComponent(item.unit)}` : "";
+    clicks[item.id] = `${dashboard}/apartments/${item.apartmentId}${unit}`;
     chrome.notifications.create(item.id, {
       type: "basic",
       iconUrl: "icons/icon128.png",

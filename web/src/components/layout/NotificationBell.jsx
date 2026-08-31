@@ -6,6 +6,17 @@ import * as api from "../../api/apartments.js";
 
 const ASKED_KEY = "aptwatch.notificationPermissionAsked";
 
+function aptwatchPath(item) {
+  const unit = item.unit ? `?unit=${encodeURIComponent(item.unit)}` : "";
+  return `/apartments/${item.apartmentId}${unit}`;
+}
+
+function openListingSite(event, url) {
+  event.preventDefault();
+  event.stopPropagation();
+  window.open(url, "_blank", "noreferrer");
+}
+
 export default function NotificationBell({ source }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
@@ -45,7 +56,8 @@ export default function NotificationBell({ source }) {
         if (!claimed?.claimed) continue;
         const toast = new Notification(item.title, { body: item.body, icon: `${import.meta.env.BASE_URL}icon.png` });
         toast.onclick = () => {
-          window.open(item.clickUrl || item.listingUrl || `/apartments/${item.apartmentId}`, "_blank");
+          window.focus();
+          window.location.assign(aptwatchPath(item));
         };
       }
     });
@@ -100,30 +112,45 @@ export default function NotificationBell({ source }) {
             </button>
           ) : null}
           {notice ? <p className="notify-notice">{notice}</p> : null}
-          {items.length === 0 ? (
-            <p className="notify-empty">None</p>
-          ) : (
-            <ul>
-              {items.slice(0, 12).map((item) => (
-                <li key={item.id} className={item.readAt ? "" : "unread"}>
-                  <Link
-                    to={`/apartments/${item.apartmentId}${item.unit ? `?unit=${encodeURIComponent(item.unit)}` : ""}`}
-                    onClick={() => {
-                      api.markNotificationRead(item.id).then(refresh);
-                      setOpen(false);
-                      if (item.listingUrl) window.open(item.listingUrl, "_blank", "noreferrer");
-                    }}
-                  >
-                    <span>
-                      {item.apartmentName}
-                      {item.unit ? ` — Unit ${item.unit}` : ""}
-                    </span>
-                    <small>{formatRelativeTime(item.createdAt)}</small>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="notify-panel-list">
+            {items.length === 0 ? (
+              <p className="notify-empty">None</p>
+            ) : (
+              <ul>
+                {items.map((item) => (
+                  <li key={item.id} className={item.readAt ? "" : "unread"}>
+                    <div className="notify-item">
+                      <Link
+                        to={aptwatchPath(item)}
+                        className="notify-item-main"
+                        onClick={() => {
+                          api.markNotificationRead(item.id).then(refresh);
+                          setOpen(false);
+                        }}
+                      >
+                        <span>
+                          {item.apartmentName}
+                          {item.unit ? ` — Unit ${item.unit}` : ""}
+                        </span>
+                        <small>{formatRelativeTime(item.createdAt)}</small>
+                      </Link>
+                      {item.listingUrl ? (
+                        <button
+                          type="button"
+                          className="notify-item-external"
+                          title="Open listing website"
+                          aria-label="Open listing website"
+                          onClick={(event) => openListingSite(event, item.listingUrl)}
+                        >
+                          ↗
+                        </button>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       ) : null}
     </div>

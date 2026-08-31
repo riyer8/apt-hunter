@@ -77,3 +77,11 @@ export async function apiDeleteApartment(id) {
 export async function apiReportScrape(id, payload) {
   return apiRequest(`/apartments/${id}/scrape`, { method: "POST", body: payload });
 }
+
+export async function apiListChanges({ limit = 30 } = {}) {
+  if (!(await apiAvailable())) return [];
+  const params = new URLSearchParams();
+  if (limit) params.set("limit", String(limit));
+  const query = params.toString();
+  return apiRequest(`/changes${query ? `?${query}` : ""}`);
+}
