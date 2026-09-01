@@ -4,7 +4,6 @@ import { listingMatchesFilters, sortListingsWithCuratedPriority } from "@shared/
 import { useApartments } from "../state/ApartmentContext.jsx";
 import { cycleSort, usePersistentFilters } from "../hooks/usePersistentFilters.js";
 import { apartmentChangeSummary } from "../lib/changes.js";
-import { formatClock, formatDateTime, formatRelativeTime } from "../lib/format.js";
 import { monitorMeta } from "../lib/status.js";
 import { EMPTY_FILTERS } from "../lib/filters.js";
 import { listScrapeHistory } from "../api/apartments.js";
@@ -16,6 +15,8 @@ import BuildingProfilePanel from "../components/building/BuildingProfilePanel.js
 import ApartmentSelectionActions, { SelectionBadges } from "../components/apartments/ApartmentSelectionActions.jsx";
 import EditApartmentModal from "../components/apartments/EditApartmentModal.jsx";
 import ScrapeProgressBanner from "../components/common/ScrapeProgressBanner.jsx";
+import ChangeSummaryStrip from "../components/common/ChangeSummaryStrip.jsx";
+import MonitorMetadata from "../components/apartments/MonitorMetadata.jsx";
 
 export default function ApartmentDetail() {
   const { id } = useParams();
@@ -104,194 +105,166 @@ export default function ApartmentDetail() {
   return (
     <Shell source={source}>
       <Link className="back" to="/">
-        ← All apartments
+        ← Dashboard
       </Link>
 
       {apartment ? (
         <>
-          {scraping ? <ScrapeProgressBanner label={`Scraping ${apartment.name} — this usually takes 10–30 seconds…`} /> : null}
-          <div className="detail-hero">
-            <div>
-              <h1 className="page-title">{apartment.name}</h1>
-              {apartment.location ? <p className="lede">{apartment.location}</p> : null}
-              <SelectionBadges apartment={apartment} />
-              <p className={`status ${monitor.tone}${scraping ? " scraping-pulse" : ""}`}>
-                <span className="dot">{monitor.icon}</span>
-                {monitor.label}
-              </p>
-              <p className="lede" style={{ marginBottom: 0 }}>
-                Last successful scrape: {formatDateTime(apartment.lastSuccessfulScrape)}
-                <br />
-                Last attempt: {formatDateTime(apartment.lastAttemptAt || apartment.lastChecked)}
-              </p>
-            </div>
-            <div className="monitor-actions">
-              {source === "api" || source === "extension" ? (
-                <>
-                  <button
-                    type="button"
-                    className={`btn btn-primary${scraping ? " btn-busy" : ""}`}
-                    disabled={Boolean(busy) || scraping}
-                    onClick={() =>
-                      run("scrape", () => (source === "api" ? scrapeNow(apartment.id) : analyzeApartment(apartment)))
-                    }
-                  >
-                    {scraping ? "Scraping…" : "Refresh listings"}
+          {scraping ? <ScrapeProgressBanner label={`Scraping ${apartment.name}…`} /> : null}
+
+          <div className="panel detail-overview">
+            <div className="detail-hero">
+              <div className="detail-hero-main">
+                <h1 className="page-title">{apartment.name}</h1>
+                {apartment.location ? <p className="detail-location">{apartment.location}</p> : null}
+                <div className="detail-hero-meta">
+                  <p className={`status ${monitor.tone}${scraping ? " scraping-pulse" : ""}`}>
+                    <span className="dot">{monitor.icon}</span>
+                    {monitor.label}
+                  </p>
+                  {canManage ? (
+                    <ApartmentSelectionActions
+                      variant="segment"
+                      apartment={apartment}
+                      disabled={Boolean(busy)}
+                      onChange={(patch) => run("selection", () => setApartmentSelection(apartment.id, patch))}
+                    />
+                  ) : (
+                    <SelectionBadges apartment={apartment} />
+                  )}
+                </div>
+              </div>
+              <div className="monitor-actions">
+                {source === "api" || source === "extension" ? (
+                  <>
+                    <button
+                      type="button"
+                      className={`btn btn-primary btn-small${scraping ? " btn-busy" : ""}`}
+                      disabled={Boolean(busy) || scraping}
+                      onClick={() =>
+                        run("scrape", () => (source === "api" ? scrapeNow(apartment.id) : analyzeApartment(apartment)))
+                      }
+                    >
+                      {scraping ? "…" : "Refresh"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-small"
+                      disabled={Boolean(busy) || apartment.monitorState === "active"}
+                      onClick={() => run("start", () => setMonitorState(apartment.id, "active"))}
+                    >
+                      Monitor
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-small"
+                      disabled={Boolean(busy) || apartment.monitorState === "paused"}
+                      onClick={() => run("pause", () => setMonitorState(apartment.id, "paused"))}
+                    >
+                      Pause
+                    </button>
+                  </>
+                ) : null}
+                <a className="btn btn-ghost btn-small" href={apartment.url} target="_blank" rel="noreferrer">
+                  Site
+                </a>
+                {source === "api" ? (
+                  <button type="button" className="btn btn-ghost btn-small" disabled={Boolean(busy)} onClick={() => setEditing(true)}>
+                    Edit
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={Boolean(busy) || apartment.monitorState === "active"}
-                    onClick={() => run("start", () => setMonitorState(apartment.id, "active"))}
-                  >
-                    Start monitoring
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    disabled={Boolean(busy) || apartment.monitorState === "paused"}
-                    onClick={() => run("pause", () => setMonitorState(apartment.id, "paused"))}
-                  >
-                    Pause monitoring
-                  </button>
-                </>
-              ) : null}
-              <a className="btn btn-ghost" href={apartment.url} target="_blank" rel="noreferrer">
-                Availability page
-              </a>
-              {source === "api" ? (
-                <button type="button" className="btn btn-ghost" disabled={Boolean(busy)} onClick={() => setEditing(true)}>
-                  Edit building
+                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-small danger-text"
+                  onClick={async () => {
+                    await removeApartment(apartment.id);
+                    navigate("/");
+                  }}
+                >
+                  Remove
                 </button>
-              ) : null}
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={async () => {
-                  await removeApartment(apartment.id);
-                  navigate("/");
-                }}
-              >
-                Remove
-              </button>
+              </div>
             </div>
+            <ChangeSummaryStrip summary={summary} />
           </div>
 
-          <ApartmentSelectionActions
-            apartment={apartment}
-            disabled={Boolean(busy)}
-            onChange={(patch) => run("selection", () => setApartmentSelection(apartment.id, patch))}
-          />
-
-          {error ? <p className="error">{error}</p> : null}
+          {error ? <p className="form-error">{error}</p> : null}
           {notice ? <p className="notice">{notice}</p> : null}
           {apartment.lastError && apartment.consecutiveFailures > 0 ? (
-            <p className="error">{apartment.lastError}</p>
+            <p className="form-error">{apartment.lastError}</p>
           ) : null}
 
-          <BuildingProfilePanel
-            apartment={apartment}
-            source={source}
-            busy={busy === "reanalyze"}
-            onReanalyze={() => run("reanalyze", () => reanalyzeBuilding(apartment.id))}
-          />
-
-          {summary ? (
-            <dl className="change-stats" style={{ marginBottom: 24 }}>
-              <div>
-                <dt>New listings</dt>
-                <dd>{summary.new}</dd>
-              </div>
-              <div>
-                <dt>Price drops</dt>
-                <dd>{summary.priceDrops}</dd>
-              </div>
-              <div>
-                <dt>Availability changes</dt>
-                <dd>{summary.availabilityChanged}</dd>
-              </div>
-              <div>
-                <dt>Recently removed</dt>
-                <dd>{summary.removed}</dd>
-              </div>
-            </dl>
-          ) : null}
-
-          {history.length > 0 ? (
-            <section className="scrape-history">
-              <div className="section-head">
-                <h2>Scrape history</h2>
-              </div>
-              <ol className="history-list">
-                {history.map((run) => (
-                  <li key={run.id}>
-                    <span className="history-time">{formatClock(run.completedAt || run.startedAt)}</span>
-                    <span>{run.status === "failed" ? "✕" : "✓"}</span>
-                    <span>
-                      {run.status === "failed"
-                        ? run.errorMessage || "failed"
-                        : `${run.listingsFound} listing${run.listingsFound === 1 ? "" : "s"}`}
-                    </span>
-                    <span className="history-when">{formatRelativeTime(run.completedAt || run.startedAt)}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          ) : null}
-
-          {source === "api" ? <AlertPrefsForm apartmentId={apartment.id} initial={apartment.alertPreferences} /> : null}
-
-          <FilterBar filters={filters} onChange={setFilters} showSort />
-
-          {focusHiddenByFilters ? (
-            <p className="filter-notice">
-              Unit {focusUnit} is hidden by your dashboard filters.{" "}
-              <button type="button" className="text-link" onClick={() => setFilters({ ...EMPTY_FILTERS })}>
-                Clear filters
-              </button>
-            </p>
-          ) : null}
-
-          {listings.length === 0 ? (
-            <div className="empty">
-              {apartment.listings.length === 0 ? (
-                "None"
-              ) : (
-                <div className="empty-filtered">
-                  <p>No matches — {apartment.listings.length} units hidden by filters.</p>
-                  <button type="button" className="btn btn-ghost btn-small" onClick={() => setFilters({ ...EMPTY_FILTERS })}>
-                    Clear filters
-                  </button>
-                </div>
-              )}
+          <section className="page-section page-primary units-section">
+            <div className="section-head">
+              <h2>Units</h2>
+              <p>
+                {listings.length} shown
+                {apartment.listings.length !== listings.length ? ` · ${apartment.listings.length} total` : ""}
+              </p>
             </div>
-          ) : (
-            <ListingsTable
-              listings={listings}
-              sortKey={filters.sort}
-              sortDir={filters.sortDir}
-              highlightUnit={focusUnit}
-              onSort={(key) => setFilters(cycleSort(filters, key))}
-              onSelectionChange={
-                canManage
-                  ? async (listingId, patch) => {
-                      setListingSelectionBusy(listingId);
-                      try {
-                        await setListingSelection(listingId, patch);
-                      } catch (err) {
-                        setError(err.message || "That didn’t work.");
-                      } finally {
-                        setListingSelectionBusy("");
+            <FilterBar filters={filters} onChange={setFilters} showSort />
+
+            {focusHiddenByFilters ? (
+              <p className="filter-notice">
+                Unit {focusUnit} filtered out.{" "}
+                <button type="button" className="text-link" onClick={() => setFilters({ ...EMPTY_FILTERS })}>
+                  Clear
+                </button>
+              </p>
+            ) : null}
+
+            {listings.length === 0 ? (
+              <div className="empty">
+                {apartment.listings.length === 0 ? (
+                  "No units yet"
+                ) : (
+                  <div className="empty-filtered">
+                    <p>{apartment.listings.length} units filtered out.</p>
+                    <button type="button" className="btn btn-ghost btn-small" onClick={() => setFilters({ ...EMPTY_FILTERS })}>
+                      Clear
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <ListingsTable
+                listings={listings}
+                sortKey={filters.sort}
+                sortDir={filters.sortDir}
+                highlightUnit={focusUnit}
+                onSort={(key) => setFilters(cycleSort(filters, key))}
+                onSelectionChange={
+                  canManage
+                    ? async (listingId, patch) => {
+                        setListingSelectionBusy(listingId);
+                        try {
+                          await setListingSelection(listingId, patch);
+                        } catch (err) {
+                          setError(err.message || "That didn’t work.");
+                        } finally {
+                          setListingSelectionBusy("");
+                        }
                       }
-                    }
-                  : undefined
-              }
-              selectionBusyId={listingSelectionBusy}
+                    : undefined
+                }
+                selectionBusyId={listingSelectionBusy}
+              />
+            )}
+          </section>
+
+          <div className="detail-secondary">
+            <BuildingProfilePanel
+              apartment={apartment}
+              source={source}
+              busy={busy === "reanalyze"}
+              onReanalyze={() => run("reanalyze", () => reanalyzeBuilding(apartment.id))}
             />
-          )}
+            {source === "api" ? <AlertPrefsForm apartmentId={apartment.id} initial={apartment.alertPreferences} /> : null}
+            <MonitorMetadata apartment={apartment} history={history} />
+          </div>
         </>
       ) : (
-        <p className="lede">Loading…</p>
+        <p className="page-loading">Loading…</p>
       )}
 
       {editing && apartment ? (
@@ -302,9 +275,9 @@ export default function ApartmentDetail() {
             const result = await updateApartment(apartment.id, patch);
             setNotice(
               result?.refreshed?.availabilities
-                ? "Saved. Refreshing availabilities and building profile — past units are kept."
+                ? "Saved. Refreshing listings."
                 : result?.refreshed?.profile
-                  ? "Saved. Refreshing building profile."
+                  ? "Saved. Refreshing scores."
                   : "Saved.",
             );
           }}

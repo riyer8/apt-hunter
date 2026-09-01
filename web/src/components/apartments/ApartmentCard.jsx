@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { apartmentChangeSummary } from "../../lib/changes.js";
-import { formatRelativeTime, formatUntil } from "../../lib/format.js";
 import { matchingListings } from "../../lib/filters.js";
 import { changeCount, monitorMeta } from "../../lib/status.js";
 import { useApartments } from "../../state/ApartmentContext.jsx";
@@ -45,20 +44,14 @@ export default function ApartmentCard({
       </div>
 
       <div className="apt-meta">
-        <span>Last checked {formatRelativeTime(apartment.lastChecked)}</span>
         <span>
-          Next check {apartment.monitorState === "active" ? formatUntil(apartment.nextScrapeAt) : "paused"}
-        </span>
-        <span>
-          {totalListings} listing{totalListings === 1 ? "" : "s"}
-          {listings.length !== totalListings
-            ? ` (${listings.length} match filters)`
-            : ""}
-          {changes ? ` · ${changes} change${changes === 1 ? "" : "s"}` : ""}
+          {totalListings} unit{totalListings === 1 ? "" : "s"}
+          {listings.length !== totalListings ? ` · ${listings.length} match` : ""}
+          {changes ? ` · ${changes} new` : ""}
         </span>
         {apartment.buildingProfile ? (
           <span>
-            Overall <OverallScore profile={apartment.buildingProfile} />
+            Score <OverallScore profile={apartment.buildingProfile} />
           </span>
         ) : null}
       </div>
@@ -81,7 +74,7 @@ export default function ApartmentCard({
               disabled={scraping || deleteBusy}
               onClick={() => onScrape(apartment)}
             >
-              {scraping ? "Scraping…" : "Refresh listings"}
+              {scraping ? "…" : "Refresh"}
             </button>
           ) : onAnalyze ? (
             <button
@@ -90,14 +83,14 @@ export default function ApartmentCard({
               disabled={scraping || deleteBusy}
               onClick={() => onAnalyze(apartment)}
             >
-              {scraping ? "Scraping…" : "Refresh listings"}
+              {scraping ? "…" : "Refresh"}
             </button>
           ) : null}
           <Link className="btn btn-ghost btn-small" to={`/apartments/${apartment.id}`}>
-            View listings
+            Units
           </Link>
           <a className="btn btn-ghost btn-small" href={apartment.url} target="_blank" rel="noreferrer">
-            Open page
+            Site
           </a>
           {onDelete ? (
             <button
@@ -113,10 +106,10 @@ export default function ApartmentCard({
       ) : (
         <div className="apt-card-footer">
           <a className="source-link" href={apartment.url} target="_blank" rel="noreferrer">
-            Availability page
+            Site
           </a>
           <Link className="btn btn-ghost btn-small" to={`/apartments/${apartment.id}`}>
-            View listings
+            Units
           </Link>
         </div>
       )}

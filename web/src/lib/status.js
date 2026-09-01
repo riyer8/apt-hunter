@@ -8,13 +8,13 @@ export function monitorMeta(apartment, { scraping = false } = {}) {
     return { label: "Paused", tone: "muted", icon: "○" };
   }
   if ((apartment.consecutiveFailures || 0) >= 3) {
-    return { label: "Scrape failing", tone: "bad", icon: "🔴" };
+    return { label: "Scrape failing", tone: "bad", icon: "●" };
   }
   if ((apartment.consecutiveFailures || 0) > 0 || apartment.lastScrapeStatus === "failed") {
-    return { label: "Retrying", tone: "warn", icon: "🟡" };
+    return { label: "Retrying", tone: "warn", icon: "●" };
   }
   if (apartment.monitorState === "active") {
-    return { label: "Monitoring", tone: "good", icon: "🟢" };
+    return { label: "Monitoring", tone: "good", icon: "●" };
   }
   return { label: "Paused", tone: "muted", icon: "○" };
 }

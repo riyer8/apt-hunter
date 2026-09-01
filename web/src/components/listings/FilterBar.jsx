@@ -16,22 +16,48 @@ export default function FilterBar({ filters, onChange, showSort = false, showApa
         onChange={set("query")}
       />
 
-      <div className="filters">
-        <label className="field">
-          <span>Max rent</span>
-          <input type="number" min="0" placeholder="Any" value={filters.maxRent} onChange={set("maxRent")} />
+      <div className="filter-primary">
+        <label className="filter-group">
+          <span className="filter-group-label">Rent</span>
+          <div className="filter-inline">
+            <span className="filter-prefix">≤ $</span>
+            <input
+              className="filter-input"
+              type="number"
+              min="0"
+              placeholder="Any"
+              value={filters.maxRent}
+              onChange={set("maxRent")}
+            />
+          </div>
         </label>
-        <label className="field">
-          <span>Min sqft</span>
-          <input type="number" min="0" placeholder="Any" value={filters.minSqft} onChange={set("minSqft")} />
+
+        <label className="filter-group">
+          <span className="filter-group-label">Sqft</span>
+          <div className="filter-range">
+            <input
+              className="filter-input"
+              type="number"
+              min="0"
+              placeholder="Min"
+              value={filters.minSqft}
+              onChange={set("minSqft")}
+            />
+            <span className="filter-range-sep">–</span>
+            <input
+              className="filter-input"
+              type="number"
+              min="0"
+              placeholder="Max"
+              value={filters.maxSqft}
+              onChange={set("maxSqft")}
+            />
+          </div>
         </label>
-        <label className="field">
-          <span>Max sqft</span>
-          <input type="number" min="0" placeholder="Any" value={filters.maxSqft} onChange={set("maxSqft")} />
-        </label>
-        <label className="field">
-          <span>Bedrooms</span>
-          <select value={filters.bedrooms} onChange={set("bedrooms")}>
+
+        <label className="filter-group filter-group-select">
+          <span className="filter-group-label">Beds</span>
+          <select className="filter-input" value={filters.bedrooms} onChange={set("bedrooms")}>
             <option value="">Any</option>
             <option value="0">Studio</option>
             <option value="1">1</option>
@@ -39,61 +65,40 @@ export default function FilterBar({ filters, onChange, showSort = false, showApa
             <option value="3">3+</option>
           </select>
         </label>
-        <label className="field">
-          <span>Bathrooms</span>
-          <select value={filters.bathrooms} onChange={set("bathrooms")}>
+
+        <label className="filter-group filter-group-select">
+          <span className="filter-group-label">Baths</span>
+          <select className="filter-input" value={filters.bathrooms} onChange={set("bathrooms")}>
             <option value="">Any</option>
             <option value="1">1+</option>
             <option value="2">2+</option>
           </select>
         </label>
-        <label className="field">
-          <span>Available by</span>
-          <input type="date" value={filters.availableBy} onChange={set("availableBy")} />
-        </label>
-        <label className="field">
-          <span>Min safety</span>
-          <input type="number" min="0" max="10" step="0.1" placeholder="Any" value={filters.minSafety} onChange={set("minSafety")} />
-        </label>
-        <label className="field">
-          <span>Min walkability</span>
-          <input
-            type="number"
-            min="0"
-            max="10"
-            step="0.1"
-            placeholder="Any"
-            value={filters.minWalkability}
-            onChange={set("minWalkability")}
-          />
-        </label>
-        <label className="field">
-          <span>Show</span>
-          <select value={filters.selectionScope || ""} onChange={set("selectionScope")}>
-            <option value="">All buildings</option>
-            <option value="favorite">Favorites only</option>
-            <option value="watchlist">Watchlist only</option>
-          </select>
+
+        <label className="filter-group">
+          <span className="filter-group-label">Available by</span>
+          <input className="filter-input" type="date" value={filters.availableBy} onChange={set("availableBy")} />
         </label>
       </div>
 
       <div className="toggles">
         <label className="toggle">
           <input type="checkbox" checked={filters.showDiscarded} onChange={set("showDiscarded")} />
-          Show hidden buildings & units
+          Show hidden
         </label>
         <label className="toggle">
           <input type="checkbox" checked={filters.newOnly} onChange={set("newOnly")} />
-          New listings only
+          New only
         </label>
         <label className="toggle">
           <input type="checkbox" checked={filters.priceDropsOnly} onChange={set("priceDropsOnly")} />
-          Price drops only
+          Drops only
         </label>
         {showSort ? (
-          <label className="field" style={{ minWidth: 180 }}>
-            <span>Sort</span>
+          <label className="filter-group filter-group-select filter-sort">
+            <span className="filter-group-label">Sort</span>
             <select
+              className="filter-input"
               value={filters.sort}
               onChange={(event) => {
                 const sort = event.target.value;
@@ -102,20 +107,14 @@ export default function FilterBar({ filters, onChange, showSort = false, showApa
               }}
             >
               <option value="unit">Unit</option>
-              {showApartmentSort ? <option value="building">Apartment</option> : null}
+              {showApartmentSort ? <option value="building">Building</option> : null}
               <option value="price">Rent</option>
               <option value="beds">Bed / Bath</option>
               <option value="sqft">Square footage</option>
-              <option value="availability">Availability date</option>
+              <option value="availability">Availability</option>
               <option value="newest">Newest</option>
               <option value="changed">Recently changed</option>
               <option value="match">Match score</option>
-              <option value="safety">Safety</option>
-              <option value="buildingAge">Building Age</option>
-              <option value="walkability">Walkability</option>
-              <option value="viewsSun">Views/Sun</option>
-              <option value="amenities">Amenities</option>
-              <option value="overall">Overall building score</option>
             </select>
           </label>
         ) : null}

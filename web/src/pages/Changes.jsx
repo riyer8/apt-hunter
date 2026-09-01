@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { listChanges } from "../api/apartments.js";
 import { useApartments } from "../state/ApartmentContext.jsx";
-import { CHANGE_TYPES, changeMeta, formatChangeValues } from "../lib/changes.js";
-import { formatRelativeTime } from "../lib/format.js";
+import { CHANGE_TYPES, changeMeta } from "../lib/changes.js";
+import {
+  countChangesByType,
+  filterRecentChanges,
+  listingForChange,
+  listingLookup,
+} from "../lib/changeListings.js";
+import { summarizeListings } from "../lib/dashboardSummaries.js";
 import Shell from "../components/layout/Shell.jsx";
+import ChangeListingCard from "../components/listings/ChangeListingCard.jsx";
+import { useApartmentActions } from "../hooks/useApartmentActions.js";
 
 export default function Changes() {
   const { apartments, loading, source } = useApartments();
@@ -12,11 +19,14 @@ export default function Changes() {
   const [type, setType] = useState("");
   const [apartmentId, setApartmentId] = useState("");
   const [ready, setReady] = useState(false);
+  const { listingSelectionBusy, handleListingSelection } = useApartmentActions();
+
+  const lookup = useMemo(() => listingLookup(apartments), [apartments]);
 
   useEffect(() => {
     let cancelled = false;
     setReady(false);
-    listChanges({ apartmentId: apartmentId || undefined, type: type || undefined })
+    listChanges({ apartmentId: apartmentId || undefined, limit: 500 })
       .then((rows) => {
         if (!cancelled) setChanges(rows);
       })
@@ -26,86 +36,99 @@ export default function Changes() {
     return () => {
       cancelled = true;
     };
-  }, [apartmentId, type, apartments, source]);
+  }, [apartmentId, apartments, source]);
 
-  const counts = useMemo(() => {
-    const tally = Object.fromEntries(CHANGE_TYPES.map((key) => [key, 0]));
-    for (const change of changes) {
-      if (tally[change.changeType] != null) tally[change.changeType] += 1;
-    }
-    return tally;
-  }, [changes]);
+  const recentChanges = useMemo(() => filterRecentChanges(changes), [changes]);
+  const counts = useMemo(() => countChangesByType(recentChanges), [recentChanges]);
+
+  const items = useMemo(() => {
+    let rows = recentChanges;
+    if (type) rows = rows.filter((change) => change.changeType === type);
+    return rows.map((change) => ({
+      change,
+      listing: listingForChange(change, lookup),
+    }));
+  }, [recentChanges, type, lookup]);
+
+  const summary = useMemo(() => summarizeListings(items.map((item) => item.listing)), [items]);
 
   return (
     <Shell source={source}>
-      <h1 className="page-title">Recent changes</h1>
+      <header className="page-header">
+        <h1 className="page-title">Changes</h1>
+        <p className="page-subtitle">
+          {summary.headline || "Units that changed in the last 48 hours."}
+        </p>
+      </header>
 
-      <div className="toolbar">
-        <div className="filters" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-          <label className="field">
-            <span>Change type</span>
-            <select value={type} onChange={(event) => setType(event.target.value)}>
-              <option value="">All types</option>
-              {CHANGE_TYPES.map((key) => (
-                <option key={key} value={key}>
-                  {changeMeta(key).label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Apartment</span>
-            <select value={apartmentId} onChange={(event) => setApartmentId(event.target.value)}>
-              <option value="">All apartments</option>
-              {apartments.map((apartment) => (
-                <option key={apartment.id} value={apartment.id}>
-                  {apartment.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </div>
-
-      <section className="stats stats-changes">
-        {CHANGE_TYPES.map((key) => (
-          <div className="stat" key={key}>
-            <div className="stat-value">{ready ? counts[key] : "—"}</div>
-            <div className="stat-label">{changeMeta(key).label}</div>
-          </div>
-        ))}
-      </section>
-
-      {!ready || loading ? (
-        <p className="lede">Loading…</p>
-      ) : changes.length === 0 ? (
-        <div className="empty">None</div>
-      ) : (
-        <div className="change-list">
-          {changes.map((change) => {
-            const meta = changeMeta(change.changeType);
+      <div className="change-filters">
+        <div className="change-type-tabs" role="tablist" aria-label="Change type">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={type === ""}
+            className={`change-type-tab${type === "" ? " active" : ""}`}
+            onClick={() => setType("")}
+          >
+            All
+            {!loading && ready ? <span>{recentChanges.length}</span> : null}
+          </button>
+          {CHANGE_TYPES.map((key) => {
+            const meta = changeMeta(key);
+            const count = loading || !ready ? null : counts[key];
             return (
-              <article key={change.id} className="change-row">
-                <span className={`badge ${meta.className}`}>{meta.label}</span>
-                <div>
-                  <h2 className="change-title">
-                    {change.apartmentName}
-                    {change.unit ? ` · Unit ${change.unit}` : ""}
-                  </h2>
-                  <p className="change-values">{formatChangeValues(change)}</p>
-                  <p className="change-when">{formatRelativeTime(change.detectedAt)}</p>
-                </div>
-                <div className="change-actions">
-                  <Link to={`/apartments/${change.apartmentId}`}>Apartment</Link>
-                  {change.listingUrl ? (
-                    <a href={change.listingUrl} target="_blank" rel="noreferrer">
-                      Listing
-                    </a>
-                  ) : null}
-                </div>
-              </article>
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={type === key}
+                className={[
+                  "change-type-tab",
+                  type === key ? "active" : "",
+                  count > 0 ? "has-count" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => setType(type === key ? "" : key)}
+              >
+                {meta.label}
+                {count != null ? <span>{count}</span> : null}
+              </button>
             );
           })}
+        </div>
+        <label className="filter-group filter-group-select">
+          <span className="filter-group-label">Building</span>
+          <select className="filter-input" value={apartmentId} onChange={(event) => setApartmentId(event.target.value)}>
+            <option value="">All buildings</option>
+            {apartments.map((apartment) => (
+              <option key={apartment.id} value={apartment.id}>
+                {apartment.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {!ready || loading ? (
+        <p className="page-loading">Loading…</p>
+      ) : items.length === 0 ? (
+        <div className="empty">No recent changes match these filters.</div>
+      ) : (
+        <div className="changed-rail changes-rail">
+          {items.map(({ change, listing }) => (
+            <ChangeListingCard
+              key={change.id}
+              change={change}
+              listing={listing}
+              onSelectionChange={
+                handleListingSelection && listing.id
+                  ? (patch) => handleListingSelection(listing.id, patch)
+                  : undefined
+              }
+              selectionBusy={listingSelectionBusy === listing.id}
+            />
+          ))}
         </div>
       )}
     </Shell>

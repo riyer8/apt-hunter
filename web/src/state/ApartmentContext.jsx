@@ -212,7 +212,10 @@ function attachMatches(apartments, prefs) {
         features,
         location,
         buildingProfile: listing.buildingProfile || apartment.buildingProfile || null,
-        match: matchListingAgainstProfiles({ ...listing, features, location }, prefs?.profiles || []),
+        match: matchListingAgainstProfiles(
+          { ...listing, features, location, buildingProfile: listing.buildingProfile || apartment.buildingProfile || null },
+          prefs?.profiles || [],
+        ),
       };
     }),
   }));

@@ -11,12 +11,19 @@ Do not invent construction years, amenities, or review quotes that are not suppo
 If a category has no source material, set insufficient=true and score=null.
 Never claim a specific unit has a view — only building-level patterns.
 
-Score each category 0–10:
+Score each category 0–10 using **one decimal place** (e.g. 7.4, 6.2, 8.9). Avoid whole-number scores like 7.0 or 8.0 unless the evidence is genuinely that uniform.
+Spread scores across the full range — two similar buildings should still differ by at least 0.3–0.8 when sources differ.
 - safety: neighborhood safety + building security (concierge, controlled access, etc.)
 - walkability: walk/transit access, daily errands, social life for someone in their 20s
 - viewsSun: typical building-level light, outdoor space, rooftop/deck, bay/city outlook
-- amenities: quality and breadth of building perks (gym, pool, lounge, parking, etc.) as described in marketing AND reviews
+- amenities: quality, reliability, and breadth of building perks — not just a marketing checklist
 - management: responsiveness, maintenance quality, leasing office, move-in/out experience — heavily weight Yelp/Google resident reviews
+
+Amenities (important):
+- Only include an amenity in facts.amenities if the official site OR resident reviews explicitly mention it.
+- Cross-check marketing claims against reviews (e.g. gym "tiny", pool "often closed", package room "full").
+- Score amenities from both breadth AND review sentiment about upkeep/access.
+- In judgments.amenities.evidence, cite specific amenities residents praise or complain about.
 
 Building age:
 - Prefer an explicit construction year (yearBuilt) when sources mention "built in", "completed", "opened", "year built", etc.
@@ -31,7 +38,6 @@ export const BUILDING_PROFILE_JSON_SCHEMA = `{
   "facts": {
     "yearBuilt": number or null,
     "yearBuiltEvidence": "short quote from sources or null",
-    "walkScore": number or null,
     "stories": number or null,
     "neighborhood": "string or null",
     "managementCompany": "property manager / operator name or null",
@@ -39,12 +45,12 @@ export const BUILDING_PROFILE_JSON_SCHEMA = `{
     "amenities": ["gym","pool","rooftop","lounge","coworking","parking","packageRoom","concierge","laundry","outdoor","elevator","airConditioning"]
   },
   "judgments": {
-    "safety": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme" },
-    "buildingAge": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote about age, era, or construction" },
-    "walkability": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme" },
-    "viewsSun": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme" },
-    "amenities": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme" },
-    "management": { "score": 0-10 or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme from Yelp/Google" }
+    "safety": { "score": 0-10 one decimal or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme" },
+    "buildingAge": { "score": 0-10 one decimal or null, "insufficient": boolean, "rationale": "...", "evidence": "quote about age, era, or construction" },
+    "walkability": { "score": 0-10 one decimal or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme" },
+    "viewsSun": { "score": 0-10 one decimal or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme" },
+    "amenities": { "score": 0-10 one decimal or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme" },
+    "management": { "score": 0-10 one decimal or null, "insufficient": boolean, "rationale": "...", "evidence": "quote or review theme from Yelp/Google" }
   },
   "summary": "2-4 sentences for a renter deciding whether to tour — mention management/review highlights."
 }`;
@@ -66,6 +72,7 @@ Location / neighborhood: ${location}
 
 Audience: young professional comparing SF Bay Area buildings.
 Prioritize walkability, safety, management quality, review sentiment, and real amenity value.
+Use precise decimal scores (one decimal place) so buildings are easy to compare side by side.
 
 Read the sources below carefully — especially Yelp and Google review text for management, maintenance, and resident experience.
 

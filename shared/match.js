@@ -3,6 +3,8 @@
  * YES / NO / UNKNOWN — never treat UNKNOWN as NO.
  */
 
+import { PREFERRED_MAX_BUILDING_AGE, buildingAgeYears } from "./buildingProfile.js";
+
 export const FEATURES = [
   { id: "laundry", label: "In-unit laundry" },
   { id: "parking", label: "Parking" },
@@ -270,7 +272,7 @@ export function matchListingAgainstProfiles(listing, profiles = []) {
 export function matchSummaryLines(match) {
   return (match?.checks || []).map((check) => ({
     id: check.id,
-    icon: check.status === "pass" ? "✓" : check.status === "fail" ? "❌" : "⚠",
+    icon: check.status === "pass" ? "✓" : check.status === "fail" ? "×" : "!",
     text: check.summary,
     status: check.status,
     hard: check.hard,
@@ -330,6 +332,7 @@ function collectCriteria(listing, prefs, features) {
       ),
     );
   }
+  items.push(evaluateBuildingAge(listing?.buildingProfile));
   return items;
 }
 
@@ -546,6 +549,55 @@ function evaluateNeighborhood(location, preferred, isHard) {
     status: isHard ? "fail" : "fail",
     summary: "Preferred area",
     detail: `${location} is outside your preferred areas.`,
+  };
+}
+
+function evaluateBuildingAge(buildingProfile) {
+  const base = { id: "buildingAge", label: "Building age", hard: false };
+  const profile = buildingProfile && typeof buildingProfile === "object" ? buildingProfile : null;
+  const age = profile?.buildingAge ?? buildingAgeYears(profile?.yearBuilt);
+  const ageScore = profile?.buildingAgeScore;
+
+  if (age == null && ageScore == null) {
+    return {
+      ...base,
+      status: "unknown",
+      summary: "Building age unknown",
+      detail: "No year built on file — re-analyze the building with an OpenAI key.",
+    };
+  }
+
+  if (age != null) {
+    const yearLabel = profile?.yearBuilt ? ` (built ${profile.yearBuilt})` : "";
+    if (age <= PREFERRED_MAX_BUILDING_AGE) {
+      return {
+        ...base,
+        status: "pass",
+        summary: "Newer building",
+        detail: `About ${age} years old${yearLabel}.`,
+      };
+    }
+    return {
+      ...base,
+      status: "fail",
+      summary: "Older building",
+      detail: `About ${age} years old${yearLabel}.`,
+    };
+  }
+
+  if (ageScore >= 7) {
+    return {
+      ...base,
+      status: "pass",
+      summary: "Newer building",
+      detail: `Building age score ${ageScore}/10.`,
+    };
+  }
+  return {
+    ...base,
+    status: "fail",
+    summary: "Older building",
+    detail: `Building age score ${ageScore}/10.`,
   };
 }
 

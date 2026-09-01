@@ -93,7 +93,7 @@ export default function NotificationBell({ source }) {
   return (
     <div className="notify-bell" ref={box}>
       <button type="button" className="notify-button" onClick={() => setOpen((value) => !value)} aria-label="Notifications">
-        🔔
+        Alerts
         {unread > 0 ? <span className="notify-count">{unread}</span> : null}
       </button>
       {open ? (

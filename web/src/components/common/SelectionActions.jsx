@@ -1,52 +1,73 @@
-export default function SelectionActions({ item, onChange, disabled = false, compact = false }) {
+const ACTIONS = [
+  {
+    id: "favorite",
+    label: "Pin",
+    activeLabel: "Pinned",
+    title: "Show at top of dashboard",
+    activeTitle: "Unpin",
+  },
+  {
+    id: "watchlist",
+    label: "Track",
+    activeLabel: "Tracking",
+    title: "Highlight changes",
+    activeTitle: "Stop tracking",
+  },
+  {
+    id: "discarded",
+    label: "Hide",
+    activeLabel: "Hidden",
+    title: "Remove from dashboard",
+    activeTitle: "Show again",
+  },
+];
+
+export default function SelectionActions({ item, onChange, disabled = false, compact = false, variant = "buttons" }) {
   if (!item) return null;
 
   const favorite = item.isFavorite === true;
   const watchlisted = item.isWatchlisted === true;
   const discarded = item.isDiscarded === true;
+  const state = { favorite, watchlist: watchlisted, discarded };
+
+  const className = ["selection-actions", compact ? "compact" : "", variant === "segment" ? "segment" : ""]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <div className={`selection-actions${compact ? " compact" : ""}`}>
-      <button
-        type="button"
-        className={`selection-btn${favorite ? " active favorite" : ""}`}
-        disabled={disabled}
-        title={favorite ? "Remove from favorites" : "Add to favorites"}
-        aria-pressed={favorite}
-        onClick={() => onChange({ favorite: !favorite })}
-      >
-        {favorite ? "★" : "☆"} Favorite
-      </button>
-      <button
-        type="button"
-        className={`selection-btn${watchlisted ? " active watchlist" : ""}`}
-        disabled={disabled}
-        title={watchlisted ? "Remove from watchlist" : "Add to watchlist"}
-        aria-pressed={watchlisted}
-        onClick={() => onChange({ watchlisted: !watchlisted })}
-      >
-        {watchlisted ? "👁" : "○"} Watchlist
-      </button>
-      <button
-        type="button"
-        className={`selection-btn${discarded ? " active discarded" : ""}`}
-        disabled={disabled}
-        title={discarded ? "Show again" : "Hide from dashboard"}
-        aria-pressed={discarded}
-        onClick={() => onChange({ discarded: !discarded })}
-      >
-        {discarded ? "↩" : "✕"} {discarded ? "Restore" : "Hide"}
-      </button>
+    <div className={className}>
+      {ACTIONS.map((action) => {
+        const active = state[action.id];
+        const patchKey = action.id === "watchlist" ? "watchlisted" : action.id;
+        return (
+          <button
+            key={action.id}
+            type="button"
+            className={`selection-btn${active ? ` active ${action.id}` : ""}`}
+            disabled={disabled}
+            title={active ? action.activeTitle : action.title}
+            aria-pressed={active}
+            onClick={() => onChange({ [patchKey]: !active })}
+          >
+            {active ? action.activeLabel : action.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
 export function SelectionBadges({ item }) {
   if (!item) return null;
-  const chips = [];
-  if (item.isFavorite) chips.push({ key: "favorite", label: "★ Favorite" });
-  if (item.isWatchlisted) chips.push({ key: "watchlist", label: "👁 Watchlist" });
-  if (item.isDiscarded) chips.push({ key: "discarded", label: "Hidden" });
+  const chips = ACTIONS.filter((action) => {
+    if (action.id === "favorite") return item.isFavorite;
+    if (action.id === "watchlist") return item.isWatchlisted;
+    if (action.id === "discarded") return item.isDiscarded;
+    return false;
+  }).map((action) => ({
+    key: action.id,
+    label: action.activeLabel,
+  }));
   if (!chips.length) return null;
   return (
     <div className="selection-badges">

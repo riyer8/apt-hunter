@@ -1,5 +1,4 @@
-import { DESC_SORT_KEYS } from "@shared/listingView.js";
-import { isNewListing, isPriceDrop } from "@shared/listingView.js";
+import { DESC_SORT_KEYS, isNewListing, isPriceDrop, priceDropAmount } from "@shared/listingView.js";
 import {
   formatAvailableShort,
   formatBedsBathsShort,
@@ -68,6 +67,7 @@ export default function ListingsTable({
             const inactive = listing.isActive === false;
             const isNew = !inactive && isNewListing(listing);
             const drop = !inactive && isPriceDrop(listing);
+            const dropAmount = drop ? priceDropAmount(listing) : null;
             const unitLabel = listing.unit || listing.floorPlan || listingTitle(listing);
             const unit = !inactive && listing.listingUrl ? (
               <a href={listing.listingUrl} target="_blank" rel="noreferrer">
@@ -78,17 +78,7 @@ export default function ListingsTable({
             );
 
             const rowClass = [
-              inactive
-                ? "listing-row-inactive"
-                : isNew
-                  ? "listing-row-new"
-                  : drop
-                    ? "listing-row-drop"
-                    : listing.isFavorite
-                      ? "listing-row-favorite"
-                      : listing.isWatchlisted
-                        ? "listing-row-watchlist"
-                        : "",
+              inactive ? "listing-row-inactive" : "",
               highlightUnit && String(listing.unit || "") === String(highlightUnit) ? "listing-row-highlight" : "",
             ]
               .filter(Boolean)
@@ -102,22 +92,27 @@ export default function ListingsTable({
                   </td>
                 ) : null}
                 <td>
-                  <span className="listing-unit-cell">
-                    {listing.isFavorite ? (
-                      <span className="listing-curate-mark favorite" title="Favorite">
-                        ★
+                  <div className="listing-unit-wrap">
+                    <span className="listing-unit-cell">
+                      {listing.isFavorite ? (
+                        <span className="listing-curate-mark favorite" title="Favorite">
+                          F
+                        </span>
+                      ) : null}
+                      {listing.isWatchlisted ? (
+                        <span className="listing-curate-mark watchlist" title="Watchlist">
+                          W
+                        </span>
+                      ) : null}
+                      {unit}
+                    </span>
+                    {inactive || isNew ? (
+                      <span className="tag-group">
+                        {inactive ? <span className="badge badge-removed">Out</span> : null}
+                        {isNew ? <span className="badge badge-new">New</span> : null}
                       </span>
                     ) : null}
-                    {listing.isWatchlisted ? (
-                      <span className="listing-curate-mark watchlist" title="Watchlist">
-                        👁
-                      </span>
-                    ) : null}
-                    {unit}
-                  </span>
-                  {inactive ? <span className="badge badge-removed">Out</span> : null}
-                  {isNew ? <span className="badge badge-new">New</span> : null}
-                  {drop ? <span className="badge badge-drop">Price drop</span> : null}
+                  </div>
                 </td>
                 <td className="num">
                   <MatchBadge match={listing.match} />
@@ -125,9 +120,16 @@ export default function ListingsTable({
                 <td className="num">
                   <OverallScore profile={listing.buildingProfile} />
                 </td>
-                <td className="num">
-                  {formatPriceShort(listing.price)}
-                  {drop ? <s>{formatPriceShort(listing.previousPrice)}</s> : null}
+                <td className={`num${drop ? " listing-price-drop" : ""}`}>
+                  <span className="listing-price-cell">
+                    {formatPriceShort(listing.price)}
+                    {drop ? (
+                      <span className="listing-price-drop-meta">
+                        <s>{formatPriceShort(listing.previousPrice)}</s>
+                        {dropAmount ? <span className="listing-price-drop-delta">−${dropAmount.toLocaleString("en-US")}</span> : null}
+                      </span>
+                    ) : null}
+                  </span>
                 </td>
                 <td className="num">{formatBedsBathsShort(listing)}</td>
                 <td className="num">{listing.sqft == null ? "—" : listing.sqft.toLocaleString("en-US")}</td>

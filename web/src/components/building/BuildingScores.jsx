@@ -3,7 +3,6 @@ import {
   BUILDING_SCORE_KEYS,
   formatBuildingScore,
   scoreBand,
-  scoreEmoji,
 } from "@shared/buildingProfile.js";
 
 const SCORE_FIELDS = {
@@ -13,6 +12,21 @@ const SCORE_FIELDS = {
   viewsSun: "viewsSunScore",
   amenities: "amenitiesScore",
 };
+
+function scoreValue(profile, itemId) {
+  if (itemId === "management") {
+    return profile?.judgments?.management?.score ?? null;
+  }
+  return profile[SCORE_FIELDS[itemId]];
+}
+
+function scoreItems(profile) {
+  const items = [...BUILDING_SCORE_KEYS];
+  if (profile?.judgments?.management?.score != null) {
+    items.push({ id: "management", label: "Management", short: "Mgmt", weight: 0 });
+  }
+  return items;
+}
 
 export default function BuildingScores({ profile, compact = false }) {
   if (!profile) {
@@ -26,19 +40,19 @@ export default function BuildingScores({ profile, compact = false }) {
     return <p className="building-scores-empty">Building scores UNKNOWN</p>;
   }
 
+  const items = scoreItems(profile);
+
   return (
     <div className={compact ? "building-scores compact" : "building-scores"}>
       {compact ? <p className="building-scores-label">Building</p> : null}
       <dl>
-        {BUILDING_SCORE_KEYS.map((item) => {
-          const score = profile[SCORE_FIELDS[item.id]];
+        {items.map((item) => {
+          const score = scoreValue(profile, item.id);
           return (
-            <div key={item.id} className={`score-row band-${scoreBand(score)}`}>
+            <div key={item.id} className={`score-card band-${scoreBand(score)}`}>
               <dt>{compact ? item.short : item.label}</dt>
               <dd>
                 <span className="score-number">{formatBuildingScore(score)}</span>
-                {score != null ? <span className="score-over">/10</span> : null}{" "}
-                <span aria-hidden="true">{scoreEmoji(score)}</span>
                 <span className="sr-only">{scoreBand(score)}</span>
               </dd>
             </div>
@@ -56,7 +70,7 @@ export function OverallScore({ profile }) {
   return (
     <span className={`overall-score band-${scoreBand(profile.overallScore)}`}>
       <span className="score-number">{formatBuildingScore(profile.overallScore)}</span>
-      <span className="score-over">/10</span> {scoreEmoji(profile.overallScore)}
+      <span className="score-over">/10</span>
     </span>
   );
 }

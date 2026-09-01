@@ -80,10 +80,12 @@ export default function Preferences() {
 
   return (
     <Shell source={source}>
-      <h1 className="page-title">Preferences</h1>
-      <p className="lede">Set what you want in a search — used for match scores on the dashboard.</p>
+      <header className="page-header">
+        <h1 className="page-title">Preferences</h1>
+        <p className="page-subtitle">Match scoring for your searches.</p>
+      </header>
 
-      <form onSubmit={onSave}>
+      <form onSubmit={onSave} className="page-stack">
         <div className="profile-tabs">
           {bundle.profiles.map((item, index) => {
             const label = displaySearchLabel(item, index);
@@ -132,7 +134,7 @@ export default function Preferences() {
 
         {profile ? <PreferencesForm value={profile} onChange={updateProfile} /> : null}
 
-        <section className="prefs-section">
+        <section className="panel prefs-section">
           <div className="section-head">
             <h2>Notifications</h2>
           </div>
@@ -145,21 +147,21 @@ export default function Preferences() {
                 setBundle((current) => ({ ...current, matchAlerts: event.target.checked }));
               }}
             />
-            Match % on new-listing notifications
+            Show match % on new listing alerts
           </label>
         </section>
 
-        {error ? <p className="error">{error}</p> : null}
-        <div className="modal-actions" style={{ justifyContent: "flex-start", flexWrap: "wrap" }}>
+        {error ? <p className="form-error">{error}</p> : null}
+        <div className="form-actions">
           <button type="submit" className="btn btn-primary">
-            Save all searches
+            Save
           </button>
           {bundle.profiles.length > 1 ? (
             <button type="button" className="btn btn-ghost" onClick={removeSearch}>
-              Delete this search
+              Delete search
             </button>
           ) : null}
-          {saved ? <span className="lede" style={{ margin: 0 }}>Saved</span> : null}
+          {saved ? <span className="saved-hint">Saved</span> : null}
         </div>
       </form>
     </Shell>

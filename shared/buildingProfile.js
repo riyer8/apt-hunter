@@ -14,8 +14,8 @@ export const BUILDING_SCORE_WEIGHTS = {
 export const BUILDING_SCORE_KEYS = [
   { id: "safety", label: "Safety", short: "Safety", weight: 0.25 },
   { id: "buildingAge", label: "Building Age", short: "Age", weight: 0.15 },
-  { id: "walkability", label: "Walkability / New-grad Life", short: "Walkability", weight: 0.25 },
-  { id: "viewsSun", label: "Views / Sun", short: "Views/Sun", weight: 0.15 },
+  { id: "walkability", label: "Walkability", short: "Walk", weight: 0.25 },
+  { id: "viewsSun", label: "Views", short: "Views", weight: 0.15 },
   { id: "amenities", label: "Amenities", short: "Amenities", weight: 0.2 },
 ];
 
@@ -46,6 +46,9 @@ export function buildingAgeYears(yearBuilt, nowYear = new Date().getFullYear()) 
   if (!Number.isInteger(year) || year < 1800 || year > nowYear + 1) return null;
   return Math.max(0, nowYear - year);
 }
+
+/** Preferred buildings are at or below this age (years) for match scoring. */
+export const PREFERRED_MAX_BUILDING_AGE = 15;
 
 /** Newer buildings score higher: 10 at age 0, minus 0.12 per year, floored at 0. */
 export function buildingAgeScoreFromYear(yearBuilt, nowYear = new Date().getFullYear()) {
@@ -99,6 +102,15 @@ export function scoreEmoji(score) {
 export function formatBuildingScore(score) {
   if (score == null || score === "" || Number.isNaN(Number(score))) return "UNKNOWN";
   return round1(Number(score)).toFixed(1);
+}
+
+export function formatYearBuiltAge(profile) {
+  const year = profile?.yearBuilt;
+  const age = profile?.buildingAge;
+  if (year == null && age == null) return "UNKNOWN";
+  if (year != null && age != null) return `${year} (${age} ${age === 1 ? "year" : "years"})`;
+  if (year != null) return String(year);
+  return `${age} ${age === 1 ? "year" : "years"}`;
 }
 
 export function isTerminalBuildingStatus(status) {
@@ -303,7 +315,7 @@ export function finalizeBuildingProfile({
     facts: {
       yearBuilt,
       buildingAge,
-      walkScore: facts.walkScore ?? null,
+      walkScore: null,
       stories: facts.stories ?? null,
       neighborhood: facts.neighborhood || null,
       managementCompany: facts.managementCompany || null,
@@ -342,6 +354,56 @@ export function finalizeBuildingProfile({
   };
 }
 
+/** Fill in year built from a dedicated lookup when source scraping did not find one. */
+export function applyYearBuiltLookup(profile, lookup, nowYear = new Date().getFullYear()) {
+  if (!profile || !lookup?.yearBuilt || profile.yearBuilt) return profile;
+  const year = Number(lookup.yearBuilt);
+  if (!isPlausibleConstructionYear(year, nowYear)) return profile;
+
+  const buildingAge = buildingAgeYears(year, nowYear);
+  const buildingAgeScore = buildingAgeScoreFromYear(year, nowYear);
+  const overall = overallBuildingScore({
+    safety: profile.safetyScore,
+    buildingAge: buildingAgeScore,
+    walkability: profile.walkabilityScore,
+    viewsSun: profile.viewsSunScore,
+    amenities: profile.amenitiesScore,
+  });
+  const source = lookup.source || "OpenAI lookup";
+
+  return {
+    ...profile,
+    yearBuilt: year,
+    buildingAge,
+    yearBuiltSource: source,
+    buildingAgeScore,
+    overallScore: overall.score,
+    overallIncomplete: overall.incomplete,
+    missingCategories: overall.missing,
+    facts: {
+      ...(profile.facts || {}),
+      yearBuilt: year,
+      buildingAge,
+    },
+    judgments: {
+      ...(profile.judgments || {}),
+      buildingAge: {
+        score: buildingAgeScore,
+        rationale: `Derived from year built ${year} (age ${buildingAge}): 10 − age × 0.12.`,
+        insufficient: buildingAgeScore == null,
+      },
+    },
+    evidence: [
+      ...(profile.evidence || []).filter((item) => item.category !== "buildingAge"),
+      {
+        category: "buildingAge",
+        fact: `Year built ${year}`,
+        quote: source,
+      },
+    ],
+  };
+}
+
 function judgmentScore(entry) {
   if (!entry || typeof entry !== "object") return null;
   if (entry.insufficient === true) return null;
@@ -372,7 +434,9 @@ function normalizeAmenityList(list) {
 export function amenitiesScoreFromList(amenities) {
   const count = (amenities || []).length;
   if (count === 0) return null;
-  return round1(Math.min(10, 3.5 + count * 0.75));
+  // Slight spread so checklist-only fallback isn't always round numbers.
+  const base = 3.2 + count * 0.68;
+  return round1(Math.min(10, base));
 }
 
 function collectEvidence({ yearBuilt, yearBuiltSource, facts, judgments, sourcesText }) {

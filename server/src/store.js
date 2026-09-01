@@ -14,7 +14,7 @@ import {
 } from "./serialize.js";
 import { pool, query } from "./db.js";
 import { decideNotification } from "./notify.js";
-import { buildingProfilesFor, maybeStartBuildingProfileOnFirstScrape } from "./buildingAnalyze.js";
+import { buildingProfilesFor, insertPendingBuildingProfile, maybeStartBuildingProfileOnFirstScrape, queueBuildingAnalysis } from "./buildingAnalyze.js";
 import { SF_BUILDINGS } from "../../shared/sfBuildings.js";
 import { canonicalUrl } from "./validate.js";
 
@@ -120,6 +120,7 @@ export function toMatchedListing(listing, apartment, previousPrice, userPrefs, b
       availableDate: listing.available_date || listing.availableDate,
       features,
       location,
+      buildingProfile,
     },
     userPrefs?.profiles || userPrefs,
   );
@@ -144,6 +145,8 @@ export async function createOrGetApartment({ name, url, canonicalUrl, location }
     [name, url, canonicalUrl, location],
   );
   await ensureAlertPrefs(inserted.rows[0].id);
+  await insertPendingBuildingProfile(inserted.rows[0].id);
+  queueBuildingAnalysis(inserted.rows[0]);
   return { apartment: inserted.rows[0], created: true };
 }
 
@@ -799,6 +802,8 @@ export async function saveAlertPrefs(apartmentId, prefs) {
 async function insertNotificationForChange(client, { change, listing, apartment, outcome, prefs, userPrefs }) {
   const already = await client.query("SELECT change_id FROM notifications WHERE change_id = $1", [change.id]);
   const features = mergeFeatures(apartment?.features, listing.features);
+  const profiles = apartment?.id ? await buildingProfilesFor([apartment.id]) : new Map();
+  const buildingProfile = profiles.get(apartment?.id) || null;
   const match = matchListingAgainstProfiles(
     {
       ...listing,
@@ -807,6 +812,7 @@ async function insertNotificationForChange(client, { change, listing, apartment,
       floorPlan: listing.floorPlan || listing.floor_plan,
       features,
       location: apartment?.location,
+      buildingProfile,
     },
     userPrefs?.profiles || userPrefs,
   );

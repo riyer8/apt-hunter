@@ -41,10 +41,10 @@ export default function ListingCard({
           </h3>
           <ListingSelectionBadges listing={listing} />
         </div>
-        <div className="listing-card-flags">
+        <div className="listing-card-flags tag-group">
           <MatchBadge match={listing.match} />
-          {isNew ? <span className="badge badge-new">New</span> : null}{" "}
-          {drop ? <span className="badge badge-drop">Price drop</span> : null}
+          {isNew ? <span className="badge badge-new">New</span> : null}
+          {drop ? <span className="badge badge-drop">Drop</span> : null}
           {inactive ? <span className="badge badge-removed">Out</span> : null}
         </div>
       </div>
@@ -58,8 +58,8 @@ export default function ListingCard({
       {specs ? <p className="listing-specs">{specs}</p> : <p className="listing-specs">Details not listed</p>}
       <p className="listing-date">
         {formatAvailable(listing.availableDate)}
-        {listing.floorPlan ? ` · ${listing.floorPlan}` : ""}
-        {dropAmount ? ` · Down $${dropAmount.toLocaleString("en-US")}` : ""}
+        {!compact && listing.floorPlan ? ` · ${listing.floorPlan}` : null}
+        {!compact && dropAmount ? ` · Down $${dropAmount.toLocaleString("en-US")}` : null}
       </p>
 
       {!compact ? <MatchDetails match={listing.match} /> : null}

@@ -6,6 +6,7 @@ import {
   BUILDING_PROFILE_SYSTEM_PROMPT,
   buildBuildingProfileUserPrompt,
 } from "./buildingProfilePrompt.js";
+import { lookupYearBuiltWithOpenAI } from "./buildingYearLookup.js";
 import { toApiBuildingProfile } from "./serialize.js";
 
 const inflight = new Set();
@@ -110,6 +111,14 @@ const intelligence = createBuildingIntelligence({
   saveHistory: async (id, existing) => saveBuildingProfileHistory(id, existing),
   gather: gatherBuildingResearch,
   complete: completeWithOpenAI,
+  lookupYearBuilt: async (apartment) => {
+    const key = process.env.OPENAI_API_KEY;
+    if (!key) return null;
+    return lookupYearBuiltWithOpenAI(apartment, {
+      apiKey: key,
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    });
+  },
 });
 
 export function queueBuildingAnalysis(apartment, { force = false } = {}) {
@@ -134,6 +143,42 @@ export async function reanalyzeBuilding(apartment) {
   inflight.delete(apartment.id);
   await intelligence.analyze(apartment, { force: true });
   return toApiBuildingProfile(await loadBuildingProfileRow(apartment.id));
+}
+
+export async function reanalyzeAllBuildingProfiles({ dryRun = false, failedOnly = false, onProgress } = {}) {
+  const result = failedOnly
+    ? await query(
+        `SELECT a.*
+         FROM apartments a
+         INNER JOIN building_profiles p ON p.apartment_id = a.id
+         WHERE p.status = 'failed'
+         ORDER BY a.name ASC`,
+      )
+    : await query("SELECT * FROM apartments ORDER BY name ASC");
+  const apartments = result.rows;
+  const outcomes = [];
+
+  for (let i = 0; i < apartments.length; i++) {
+    const apartment = apartments[i];
+    const progress = { index: i + 1, total: apartments.length, apartment };
+    onProgress?.({ ...progress, status: "start" });
+
+    if (dryRun) {
+      outcomes.push({ id: apartment.id, name: apartment.name, ok: true, skipped: true });
+      continue;
+    }
+
+    try {
+      const profile = await reanalyzeBuilding(apartment);
+      outcomes.push({ id: apartment.id, name: apartment.name, ok: true, profile });
+      onProgress?.({ ...progress, status: "done", profile });
+    } catch (error) {
+      outcomes.push({ id: apartment.id, name: apartment.name, ok: false, error: error.message });
+      onProgress?.({ ...progress, status: "error", error });
+    }
+  }
+
+  return outcomes;
 }
 
 export async function maybeStartBuildingProfileOnFirstScrape(apartment) {

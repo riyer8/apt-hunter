@@ -14,7 +14,8 @@ export default function Shell({ children, action, source }) {
             <NavLink to="/" end>
               Dashboard
             </NavLink>
-            <NavLink to="/changes">Recent changes</NavLink>
+            <NavLink to="/changes">Changes</NavLink>
+            <NavLink to="/browse">Browse</NavLink>
             <NavLink to="/preferences">Preferences</NavLink>
           </nav>
         </div>
@@ -23,7 +24,7 @@ export default function Shell({ children, action, source }) {
           {action}
         </div>
       </header>
-      {children}
+      <main className="page-main">{children}</main>
     </div>
   );
 }

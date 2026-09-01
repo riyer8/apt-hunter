@@ -16,6 +16,7 @@
     "verify": "node scripts/verify.mjs",
     "verify:live": "node scripts/verify.mjs --live",
     "verify:audit": "node scripts/verify.mjs --audit",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "reanalyze-buildings": "node scripts/reanalyze-buildings.mjs"
   }
 }

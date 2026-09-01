@@ -42,23 +42,26 @@ export default function AlertPrefsForm({ apartmentId, initial }) {
       setPrefs(prefsFromApi(next));
       setSaved(true);
     } catch (err) {
-      setError(err.message || "Could not save alerts.");
+      setError(err.message || "Save failed.");
     }
   }
 
   return (
-    <form className="alert-prefs" onSubmit={onSubmit}>
-      <div className="section-head">
-        <h2>Alerts</h2>
-      </div>
-      <div className="toggles">
+    <details className="metadata-panel alert-prefs-panel">
+      <summary className="metadata-panel-summary">
+        <span>Alerts</span>
+        <span className="metadata-panel-hint">Email when units change</span>
+      </summary>
+      <div className="metadata-panel-body">
+        <form className="alert-prefs" onSubmit={onSubmit}>
+          <div className="toggles">
         <label className="toggle">
           <input type="checkbox" checked={prefs.newListings} onChange={(event) => set("newListings", event.target.checked)} />
-          New listings
+          New
         </label>
         <label className="toggle">
           <input type="checkbox" checked={prefs.priceDrops} onChange={(event) => set("priceDrops", event.target.checked)} />
-          Price drops
+          Drops
         </label>
         <label className="toggle">
           <input
@@ -66,7 +69,7 @@ export default function AlertPrefsForm({ apartmentId, initial }) {
             checked={prefs.priceIncreases}
             onChange={(event) => set("priceIncreases", event.target.checked)}
           />
-          Price increases
+          Increases
         </label>
         <label className="toggle">
           <input
@@ -74,21 +77,21 @@ export default function AlertPrefsForm({ apartmentId, initial }) {
             checked={prefs.availabilityChanges}
             onChange={(event) => set("availabilityChanges", event.target.checked)}
           />
-          Availability changes
+          Avail.
         </label>
-      </div>
-      <div className="filters" style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))", marginTop: 12 }}>
-        <label className="field">
-          <span>Max rent</span>
-          <input type="number" min="0" placeholder="Any" value={prefs.maxRent} onChange={(event) => set("maxRent", event.target.value)} />
+          </div>
+          <div className="alert-prefs-filters">
+        <label className="filter-group">
+          <span className="filter-group-label">Rent ≤</span>
+          <input className="filter-input" type="number" min="0" placeholder="Any" value={prefs.maxRent} onChange={(event) => set("maxRent", event.target.value)} />
         </label>
-        <label className="field">
-          <span>Min sqft</span>
-          <input type="number" min="0" placeholder="Any" value={prefs.minSqft} onChange={(event) => set("minSqft", event.target.value)} />
+        <label className="filter-group">
+          <span className="filter-group-label">Sqft ≥</span>
+          <input className="filter-input" type="number" min="0" placeholder="Any" value={prefs.minSqft} onChange={(event) => set("minSqft", event.target.value)} />
         </label>
-        <label className="field">
-          <span>Bedrooms</span>
-          <select value={prefs.bedrooms} onChange={(event) => set("bedrooms", event.target.value)}>
+        <label className="filter-group filter-group-select">
+          <span className="filter-group-label">Beds</span>
+          <select className="filter-input" value={prefs.bedrooms} onChange={(event) => set("bedrooms", event.target.value)}>
             <option value="">Any</option>
             <option value="0">Studio</option>
             <option value="1">1</option>
@@ -96,23 +99,25 @@ export default function AlertPrefsForm({ apartmentId, initial }) {
             <option value="3">3+</option>
           </select>
         </label>
-        <label className="field">
-          <span>Bathrooms</span>
-          <input type="number" min="0" step="0.5" placeholder="Any" value={prefs.bathrooms} onChange={(event) => set("bathrooms", event.target.value)} />
+        <label className="filter-group">
+          <span className="filter-group-label">Baths ≥</span>
+          <input className="filter-input" type="number" min="0" step="0.5" placeholder="Any" value={prefs.bathrooms} onChange={(event) => set("bathrooms", event.target.value)} />
         </label>
-        <label className="field">
-          <span>Available by</span>
-          <input type="date" value={prefs.availableBy || ""} onChange={(event) => set("availableBy", event.target.value)} />
+        <label className="filter-group">
+          <span className="filter-group-label">By</span>
+          <input className="filter-input" type="date" value={prefs.availableBy || ""} onChange={(event) => set("availableBy", event.target.value)} />
         </label>
+          </div>
+          {error ? <p className="error">{error}</p> : null}
+          <div className="alert-prefs-actions">
+            <button type="submit" className="btn btn-primary btn-small">
+              Save
+            </button>
+            {saved ? <span className="saved-hint">Saved</span> : null}
+          </div>
+        </form>
       </div>
-      {error ? <p className="error">{error}</p> : null}
-      <div className="modal-actions" style={{ justifyContent: "flex-start", marginTop: 16 }}>
-        <button type="submit" className="btn btn-primary">
-          Save alerts
-        </button>
-        {saved ? <span className="lede" style={{ margin: 0 }}>Saved.</span> : null}
-      </div>
-    </form>
+    </details>
   );
 }
 

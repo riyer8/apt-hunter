@@ -1,16 +1,17 @@
 import { matchSummaryLines } from "@shared/match.js";
 import { useState } from "react";
 
-export default function MatchBadge({ match }) {
+export default function MatchBadge({ match, scoreOnly = false }) {
   if (!match?.configured) return null;
   if (!match.qualifies) {
-    return <span className="match-badge match-fail">❌ DOES NOT QUALIFY</span>;
+    return <span className="match-badge match-fail">{scoreOnly ? "—" : "No match"}</span>;
   }
   const tone = match.score >= 80 ? "good" : match.score >= 50 ? "mid" : "low";
-  const emoji = tone === "good" ? "🟢" : tone === "mid" ? "🟡" : "🟠";
   return (
-    <span className={`match-badge match-${tone}`}>
-      {emoji} {match.score}% MATCH{match.profileName ? ` · ${match.profileName}` : ""}
+    <span className={`match-badge match-${tone}${scoreOnly ? " match-badge-score-only" : ""}`}>
+      {!scoreOnly ? <span className="match-dot" aria-hidden="true" /> : null}
+      {match.score}%
+      {!scoreOnly && match.profileName ? ` · ${match.profileName}` : ""}
     </span>
   );
 }

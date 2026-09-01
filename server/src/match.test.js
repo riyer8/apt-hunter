@@ -124,6 +124,21 @@ describe("matchListing", () => {
     const b = matchListing(listing, prefs);
     assert.deepEqual(a, b);
   });
+
+  it("11. newer buildings score higher when building age is known", () => {
+    const basePrefs = defaultUserPrefs({ maxRent: 4200 });
+    const newer = matchListing(
+      { ...listing, buildingProfile: { yearBuilt: 2022, buildingAge: 4, buildingAgeScore: 9.5 } },
+      basePrefs,
+    );
+    const older = matchListing(
+      { ...listing, buildingProfile: { yearBuilt: 1985, buildingAge: 41, buildingAgeScore: 5.1 } },
+      basePrefs,
+    );
+    assert.ok(newer.score > older.score, `${newer.score} should beat ${older.score}`);
+    const ageCheck = newer.checks.find((item) => item.id === "buildingAge");
+    assert.equal(ageCheck.status, "pass");
+  });
 });
 
 const studioHunt = defaultUserPrefs({

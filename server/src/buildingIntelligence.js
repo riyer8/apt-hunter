@@ -1,5 +1,6 @@
 import {
   ANALYSIS_VERSION,
+  applyYearBuiltLookup,
   finalizeBuildingProfile,
   isTerminalBuildingStatus,
 } from "../../shared/buildingProfile.js";
@@ -10,6 +11,7 @@ export function createBuildingIntelligence({
   saveHistory,
   gather,
   complete,
+  lookupYearBuilt,
   nowYear = () => new Date().getFullYear(),
 } = {}) {
   async function analyze(apartment, { force = false } = {}) {
@@ -52,11 +54,19 @@ export function createBuildingIntelligence({
         model: completion?.model || null,
         trustModelFacts: completion?.trustModelFacts === true,
       });
-      finalized.analyzedAt = new Date().toISOString();
-      finalized.analysisVersion = nextVersion(existing, force);
+      const currentYear = typeof nowYear === "function" ? nowYear() : nowYear;
+      let profile = finalized;
+      if (!profile.yearBuilt && lookupYearBuilt) {
+        const lookup = await lookupYearBuilt(apartment);
+        if (lookup?.yearBuilt) {
+          profile = applyYearBuiltLookup(profile, lookup, currentYear);
+        }
+      }
+      profile.analyzedAt = new Date().toISOString();
+      profile.analysisVersion = nextVersion(existing, force);
 
-      await saveProfile(apartment.id, finalized);
-      return { ran: true, reason: "analyzed", profile: finalized };
+      await saveProfile(apartment.id, profile);
+      return { ran: true, reason: "analyzed", profile };
     } catch (error) {
       const failed = {
         ...(existing || emptyish(existing)),
